@@ -120,10 +120,20 @@ export function TradeJournalHistory() {
   const selectedEntries = entriesByDate.get(selectedDate) ?? [];
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const leadingDays = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
-  const calendarCells = Array.from({ length: leadingDays + daysInMonth }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
+  const calendarCells = Array.from({ length: 42 }, (_, index) => {
+    const cellDate = new Date(year, monthIndex, 1 - leadingDays + index);
+    return {
+      day: cellDate.getDate(),
+      key: toDateKey(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()),
+      currentMonth: cellDate.getMonth() === monthIndex,
+      month: cellDate.getMonth(),
+      year: cellDate.getFullYear(),
+    };
+  });
   const monthTitle = new Intl.DateTimeFormat("en-ZA", { month: "long", year: "numeric" }).format(month);
+  const today = new Date();
+  const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
   function changeMonth(offset: number) {
     const next = new Date(year, monthIndex + offset, 1);
@@ -139,14 +149,16 @@ export function TradeJournalHistory() {
 
     <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_1.05fr]">
       <div>
-        <div className="mb-4 flex items-center justify-between"><button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-slate-400 hover:text-white">←</button><p className="font-semibold text-white">{monthTitle}</p><button type="button" onClick={() => changeMonth(1)} aria-label="Next month" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-slate-400 hover:text-white">→</button></div>
-        <div className="grid grid-cols-7 gap-1">{dayLabels.map((label) => <div key={label} className="py-2 text-center text-[10px] font-medium uppercase tracking-wider text-slate-600">{label}</div>)}{calendarCells.map((day, index) => {
-          if (!day) return <div key={`empty-${index}`} />;
-          const key = toDateKey(year, monthIndex, day);
-          const dayEntries = entriesByDate.get(key) ?? [];
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-white/[0.07] bg-[#080b10] px-2 py-2"><button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month" className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white">←</button><div className="text-center"><p className="font-semibold text-white">{monthTitle}</p><p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-600">{entries.length} logged {entries.length === 1 ? "trade" : "trades"}</p></div><button type="button" onClick={() => changeMonth(1)} aria-label="Next month" className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white">→</button></div>
+        <div className="journal-calendar-grid">{dayLabels.map((label) => <div key={label} className="py-2 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</div>)}{calendarCells.map((cell) => {
+          const dayEntries = entriesByDate.get(cell.key) ?? [];
           const dayPnl = dayEntries.reduce((sum, entry) => sum + Number(entry.pnl ?? 0), 0);
-          const selected = selectedDate === key;
-          return <button type="button" key={key} onClick={() => setSelectedDate(key)} className={`relative min-h-16 rounded-lg border p-1.5 text-left transition ${selected ? "border-indigo-400 bg-indigo-400/10" : dayEntries.length ? "border-white/10 bg-white/[0.035] hover:border-indigo-400/30" : "border-transparent hover:bg-white/[0.025]"}`}><span className={`text-xs ${selected ? "text-indigo-200" : "text-slate-400"}`}>{day}</span>{dayEntries.length > 0 && <><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-300" /><p className={`mt-3 truncate text-[10px] font-medium ${dayPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{dayPnl >= 0 ? "+" : ""}${dayPnl.toFixed(0)}</p></>}</button>;
+          const selected = selectedDate === cell.key;
+          const isToday = todayKey === cell.key;
+          return <button type="button" key={cell.key} aria-pressed={selected} onClick={() => {
+            setSelectedDate(cell.key);
+            if (!cell.currentMonth) setMonth(new Date(cell.year, cell.month, 1));
+          }} className={`relative min-h-[76px] rounded-xl border p-2 text-left transition sm:min-h-[84px] ${selected ? "border-indigo-400 bg-indigo-400/15 shadow-[0_0_0_1px_rgba(129,140,248,0.15)]" : dayEntries.length ? "border-white/10 bg-white/[0.04] hover:border-indigo-400/30 hover:bg-white/[0.06]" : "border-white/[0.045] bg-[#0a0e15] hover:border-white/10"} ${cell.currentMonth ? "" : "opacity-35"}`}><span className={`grid h-6 w-6 place-items-center rounded-full text-xs ${isToday ? "bg-indigo-500 font-semibold text-white" : selected ? "font-semibold text-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayEntries.length > 0 && <div className="absolute inset-x-2 bottom-2"><div className="mb-1 flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-indigo-300" /><span className="text-[9px] text-slate-500">{dayEntries.length} {dayEntries.length === 1 ? "trade" : "trades"}</span></div><p className={`truncate text-[10px] font-semibold ${dayPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{dayPnl >= 0 ? "+" : ""}${dayPnl.toFixed(0)}</p></div>}</button>;
         })}</div>
       </div>
 
