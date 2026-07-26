@@ -99,31 +99,31 @@ export function BehaviourJournalForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5 sm:p-7">
+    <form onSubmit={onSubmit} className="decision-form">
+      <section className="form-section">
         <div className="flex flex-col justify-between gap-4 border-b border-white/[0.07] pb-5 sm:flex-row sm:items-center">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-300">Daily check-in</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">How did you show up today?</h2>
-            <p className="mt-2 text-sm text-slate-400">Answer honestly. This is a private signal, not a scorecard.</p>
+            <p className="form-eyebrow">Daily check-in</p>
+            <h2 className="form-title">How did you show up today?</h2>
+            <p className="form-description">Answer honestly. This is a private signal, not a scorecard.</p>
           </div>
           <label className="text-sm text-slate-400">
-            <span className="mb-1.5 block text-xs uppercase tracking-wider text-slate-500">Entry date</span>
-            <input value={entryDate} onChange={(event) => setEntryDate(event.target.value)} type="date" className="rounded-lg border border-white/10 bg-[#080b10] px-3 py-2 text-slate-200 outline-none focus:border-indigo-400" />
+            <span className="form-label">Entry date</span>
+            <input value={entryDate} onChange={(event) => setEntryDate(event.target.value)} type="date" />
           </label>
         </div>
 
         <div className="mt-2 divide-y divide-white/[0.07]">
           {questions.map(({ key, label, help }, index) => (
-            <fieldset key={key} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <fieldset key={key} className="form-question">
               <div>
-                <legend className="text-sm font-medium text-slate-200"><span className="mr-3 text-xs text-slate-600">{String(index + 1).padStart(2, "0")}</span>{label}</legend>
-                {help && <p className="mt-1 pl-7 text-xs text-slate-500">{help}</p>}
+                <legend className="form-label"><span className="question-index">{String(index + 1).padStart(2, "0")}</span>{label}</legend>
+                {help && <p className="form-help question-help">{help}</p>}
               </div>
-              <div className="grid grid-cols-2 rounded-lg border border-white/10 bg-[#080b10] p-1 sm:w-40">
+              <div className="form-segment form-segment-compact">
                 {([true, false] as const).map((value) => {
                   const selected = answers[key] === value;
-                  return <button key={String(value)} type="button" onClick={() => setAnswer(key, value)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${selected ? value ? "bg-emerald-400 text-[#06251d]" : "bg-rose-400 text-[#31080c]" : "text-slate-500 hover:text-slate-200"}`}>{value ? "Yes" : "No"}</button>;
+                  return <button key={String(value)} type="button" onClick={() => setAnswer(key, value)} className={selected ? value ? "is-positive" : "is-negative" : ""}>{value ? "Yes" : "No"}</button>;
                 })}
               </div>
             </fieldset>
@@ -131,7 +131,7 @@ export function BehaviourJournalForm() {
         </div>
       </section>
 
-      <section className={`rounded-2xl border p-5 sm:p-6 ${readinessStyle}`}>
+      <section className={`form-section border ${readinessStyle}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-medium uppercase tracking-[0.15em] opacity-75">Rule-based readiness</p><h3 className="mt-1 text-lg font-semibold capitalize">{readiness.recommendation.replace("_", " ")}</h3></div>
           <div className="rounded-full border border-current/30 px-3 py-1.5 text-sm font-semibold">{readiness.score === null ? "—" : `${readiness.score}/100`}</div>
@@ -140,14 +140,13 @@ export function BehaviourJournalForm() {
         {readiness.factors.length > 0 && <ul className="mt-4 grid gap-1.5 text-xs opacity-80 sm:grid-cols-2">{readiness.factors.slice(0, 6).map((factor) => <li key={factor}>• {factor}</li>)}</ul>}
       </section>
 
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5 sm:p-7">
-        <label htmlFor="notes" className="text-sm font-medium text-slate-200">Optional note</label>
-        <p className="mt-1 text-sm text-slate-500">Capture context you may want to recognise later.</p>
-        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="What influenced your decisions today?" className="mt-4 w-full resize-y rounded-lg border border-white/10 bg-[#080b10] p-3 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-indigo-400" />
+      <section className="form-section">
+        <label htmlFor="notes" className="form-field"><span className="form-label">Optional note</span><span className="form-help">Capture context you may want to recognise later.</span>
+        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="What influenced your decisions today?" /></label>
       </section>
 
-      {status !== "idle" && <p className={`rounded-lg border px-4 py-3 text-sm ${status === "success" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : status === "error" ? "border-rose-400/20 bg-rose-400/10 text-rose-200" : "border-indigo-400/20 bg-indigo-400/10 text-indigo-200"}`}>{message || "Saving your entry…"}</p>}
-      <button disabled={status === "saving"} type="submit" className="w-full rounded-lg bg-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60">{status === "saving" ? "Saving entry…" : "Save behaviour journal"}</button>
+      {status !== "idle" && <p className={`form-status ${status === "success" ? "is-success" : status === "error" ? "is-error" : "is-saving"}`}>{message || "Saving your entry…"}</p>}
+      <button disabled={status === "saving"} type="submit" className="form-submit">{status === "saving" ? "Saving entry…" : "Save behaviour journal"}</button>
     </form>
   );
 }
