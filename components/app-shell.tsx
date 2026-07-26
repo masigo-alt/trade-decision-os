@@ -91,7 +91,7 @@ export function AppShell({ children, width = "wide" }: { children: ReactNode; wi
         <div className="app-shell-nav"><Navigation onNavigate={() => setMenuOpen(false)} /></div>
       </aside>
 
-      <div className="min-w-0 flex-1">
+      <div className="app-shell-main">
         <div className="app-mobile-topbar sticky top-0 z-30 h-16 items-center border-b border-white/[0.06] bg-[#090b10]/85 px-5 backdrop-blur-xl sm:px-7">
           <button aria-label="Open navigation menu" onClick={() => setMenuOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-slate-300">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-5 w-5"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
