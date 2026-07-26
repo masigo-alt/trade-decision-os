@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 
 export default function BehaviourJournalPage() {
   return (
-    <AppShell width="reading">
+    <AppShell>
         <header className="mb-8 flex items-center justify-between">
           <div>
             <p className="eyebrow text-violet-300">Behaviour journal</p>
