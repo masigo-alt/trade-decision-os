@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { scoreTraderReadiness } from "@/lib/trader-readiness";
 
 type QuestionKey =
   | "slept_well"
@@ -38,6 +39,14 @@ export function BehaviourJournalForm() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const readiness = scoreTraderReadiness(answers);
+  const readinessStyle = {
+    proceed: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
+    wait: "border-amber-300/20 bg-amber-300/10 text-amber-100",
+    reduce_size: "border-orange-400/20 bg-orange-400/10 text-orange-200",
+    avoid: "border-rose-400/20 bg-rose-400/10 text-rose-200",
+    incomplete: "border-white/[0.08] bg-white/[0.03] text-slate-400",
+  }[readiness.recommendation];
 
   function setAnswer(key: QuestionKey, value: boolean) {
     setAnswers((current) => ({ ...current, [key]: value }));
@@ -120,6 +129,15 @@ export function BehaviourJournalForm() {
             </fieldset>
           ))}
         </div>
+      </section>
+
+      <section className={`rounded-2xl border p-5 sm:p-6 ${readinessStyle}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><p className="text-xs font-medium uppercase tracking-[0.15em] opacity-75">Rule-based readiness</p><h3 className="mt-1 text-lg font-semibold capitalize">{readiness.recommendation.replace("_", " ")}</h3></div>
+          <div className="rounded-full border border-current/30 px-3 py-1.5 text-sm font-semibold">{readiness.score === null ? "—" : `${readiness.score}/100`}</div>
+        </div>
+        <p className="mt-3 text-sm leading-5 opacity-90">{readiness.summary}</p>
+        {readiness.factors.length > 0 && <ul className="mt-4 grid gap-1.5 text-xs opacity-80 sm:grid-cols-2">{readiness.factors.slice(0, 6).map((factor) => <li key={factor}>• {factor}</li>)}</ul>}
       </section>
 
       <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5 sm:p-7">
