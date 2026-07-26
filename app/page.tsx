@@ -56,7 +56,7 @@ type IconName = "grid" | "brief" | "check" | "journal" | "chart" | "settings";
 const navigation: Array<{ icon: IconName; label: string; href: string }> = [
   { icon: "grid", label: "Dashboard", href: "/" },
   { icon: "brief", label: "Daily Brief", href: "#" },
-  { icon: "check", label: "Pre-trade Check", href: "#" },
+  { icon: "check", label: "Pre-trade Check", href: "/pre-trade-check" },
   { icon: "journal", label: "Trade Journal", href: "#" },
   { icon: "settings", label: "Behaviour Journal", href: "/behaviour-journal" },
   { icon: "chart", label: "Weekly Insights", href: "#" },
@@ -118,7 +118,7 @@ export default function DashboardPage() {
         <section className="flex-1 px-5 py-6 sm:px-8 lg:px-10">
           <header className="mb-9 flex items-center justify-between">
             <div className="flex items-start gap-3"><button aria-label="Open navigation menu" onClick={() => setMenuOpen(true)} className="mt-1 grid h-10 w-10 place-items-center rounded-lg border border-white/[0.08] bg-[#0e131d] text-slate-300 transition hover:border-indigo-400/40 hover:text-white lg:hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div><p className="mb-1 text-sm text-slate-500">Friday, 11 July 2026</p><h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Good morning, Masigo.</h1></div></div>
-            <button className="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400">New trade check</button>
+            <Link href="/pre-trade-check" className="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400">New trade check</Link>
           </header>
 
           <section className="mb-8 overflow-hidden rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/[0.13] via-[#121827] to-[#0d1119] p-6 sm:p-7">
