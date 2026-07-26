@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
 
 type Bias = "Bullish" | "Bearish" | "Neutral" | "Mixed";
 
@@ -82,7 +83,7 @@ export default function AssetDetailPage() {
 
   if (!brief) return <main className="grid min-h-screen place-items-center bg-[#080b10] p-6 text-center"><div><p className="text-sm text-slate-500">Asset not found</p><Link href="/" className="mt-3 inline-block text-indigo-300">← Return to dashboard</Link></div></main>;
 
-  return <main className="min-h-screen bg-[#080b10] px-5 py-6 text-slate-100 sm:px-8 lg:px-10"><div className="mx-auto max-w-6xl"><header className="mb-8"><Link href="/" className="text-sm text-indigo-300 transition hover:text-indigo-200">← Dashboard</Link><div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">Asset context</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">{brief.name} <span className="text-slate-500">/ {brief.symbol}</span></h1></div><div className="flex items-center gap-3"><span className={`rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${biasStyle[brief.bias]}`}>{brief.bias} context</span><div className="rounded-xl border border-white/10 bg-[#0e131d] px-4 py-2 text-right"><p className="text-[11px] uppercase tracking-wider text-slate-500">Conviction</p><p className="text-lg font-semibold text-white">{brief.conviction}<span className="text-xs text-slate-500">/100</span></p></div></div></div></header>
+  return <AppShell><header className="mb-8"><Link href="/" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">← All markets</Link><div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow text-slate-600">Asset context</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">{brief.name} <span className="font-normal text-slate-600">/ {brief.symbol}</span></h1></div><div className="flex items-center gap-3"><span className={`rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${biasStyle[brief.bias]}`}>{brief.bias} context</span><div className="surface px-4 py-2 text-right"><p className="eyebrow text-slate-600">Conviction</p><p className="text-lg font-semibold text-white">{brief.conviction}<span className="text-xs text-slate-600">/100</span></p></div></div></div></header>
 
     <section className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/[0.12] via-[#121827] to-[#0d1119] p-6"><p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-200">Decision-support summary</p><p className="mt-3 max-w-4xl text-lg leading-7 text-slate-100">{brief.summary}</p></section>
 
@@ -93,5 +94,5 @@ export default function AssetDetailPage() {
     <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1fr]"><section className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-5"><p className="text-xs font-medium uppercase tracking-[0.15em] text-amber-200">Invalidation</p><p className="mt-3 text-sm leading-6 text-slate-300">{brief.invalidation}</p></section><section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5"><p className="text-xs font-medium uppercase tracking-[0.15em] text-slate-500">Key risk events</p><ul className="mt-3 space-y-2">{brief.riskEvents.map((event) => <li key={event} className="flex gap-3 text-sm text-slate-300"><span className="text-amber-200">•</span>{event}</li>)}</ul></section></div>
 
     <aside className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-xs leading-5 text-slate-500">This page provides market context and decision support for educational purposes. It is not financial advice, a recommendation, or a solicitation to transact. Consider your own objectives, risk tolerance, and professional advice before making any decision.</aside>
-  </div></main>;
+  </AppShell>;
 }
