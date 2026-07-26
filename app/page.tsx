@@ -57,7 +57,7 @@ const navigation: Array<{ icon: IconName; label: string; href: string }> = [
   { icon: "grid", label: "Dashboard", href: "/" },
   { icon: "brief", label: "Daily Brief", href: "#" },
   { icon: "check", label: "Pre-trade Check", href: "/pre-trade-check" },
-  { icon: "journal", label: "Trade Journal", href: "#" },
+  { icon: "journal", label: "Trade Journal", href: "/trade-journal" },
   { icon: "settings", label: "Behaviour Journal", href: "/behaviour-journal" },
   { icon: "chart", label: "Weekly Insights", href: "/weekly-insights" },
 ];
