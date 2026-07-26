@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type Bias = "Bullish" | "Bearish" | "Neutral";
 
 const assets: Array<{
@@ -74,14 +76,14 @@ export default function DashboardPage() {
             <div><p className="text-sm font-semibold tracking-tight text-white">Trade Decision OS</p><p className="text-[11px] text-slate-500">PRIVATE WORKSPACE</p></div>
           </div>
           <nav className="space-y-1 text-sm">
-            {[["grid", "Dashboard"], ["brief", "Daily Brief"], ["check", "Pre-trade Check"], ["journal", "Trade Journal"], ["chart", "Weekly Insights"]].map(([icon, label]) => (
-              <button key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left ${label === "Dashboard" ? "bg-indigo-500/12 text-indigo-200" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
+            {[["grid", "Dashboard", "/"], ["brief", "Daily Brief", "#"], ["check", "Pre-trade Check", "#"], ["journal", "Trade Journal", "#"], ["chart", "Weekly Insights", "#"]].map(([icon, label, href]) => (
+              <Link href={href} key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left ${label === "Dashboard" ? "bg-indigo-500/12 text-indigo-200" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
                 <Icon name={icon as "grid"} /><span>{label}</span>
-              </button>
+              </Link>
             ))}
           </nav>
           <div className="mt-auto border-t border-white/[0.07] pt-4">
-            <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400"><Icon name="settings" /> Settings</button>
+            <Link href="/behaviour-journal" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Icon name="settings" /> Behaviour journal</Link>
             <div className="mt-4 flex items-center gap-3 px-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-600 text-xs font-bold">M</div><div><p className="text-sm text-slate-200">Masigo</p><p className="text-xs text-slate-500">Private account</p></div></div>
           </div>
         </aside>
