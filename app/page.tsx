@@ -59,7 +59,7 @@ const navigation: Array<{ icon: IconName; label: string; href: string }> = [
   { icon: "check", label: "Pre-trade Check", href: "/pre-trade-check" },
   { icon: "journal", label: "Trade Journal", href: "#" },
   { icon: "settings", label: "Behaviour Journal", href: "/behaviour-journal" },
-  { icon: "chart", label: "Weekly Insights", href: "#" },
+  { icon: "chart", label: "Weekly Insights", href: "/weekly-insights" },
 ];
 
 function Icon({ name }: { name: IconName }) {
