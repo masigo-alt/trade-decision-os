@@ -42,6 +42,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .app-shell-mobile { width: 18rem; }
 .app-shell-content { max-width: 1280px; }
+.app-shell-main {
+  min-width: 0;
+  flex: 1 1 0%;
+}
 .app-desktop-sidebar { display: none; }
 .app-mobile-drawer, .app-mobile-topbar { display: flex; }
 .app-shell-nav { margin-top: 2.5rem; }
