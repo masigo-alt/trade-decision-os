@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AppShell } from "@/components/app-shell";
 import {
   analyseWeek,
   demoBehaviourEntries,
@@ -14,7 +14,7 @@ import {
   type TradeOutcome,
 } from "@/lib/weekly-insights";
 
-const card = "rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5";
+const card = "surface p-5";
 
 function Metric({ label, value, note, tone = "text-white" }: { label: string; value: string | number; note: string; tone?: string }) {
   return <article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-3 text-2xl font-semibold ${tone}`}>{value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{note}</p></article>;
@@ -71,8 +71,8 @@ export default function WeeklyInsightsPage() {
 
   const insights = useMemo(() => analyseWeek(entries, trades, checklists), [entries, trades, checklists]);
 
-  return <main className="min-h-screen bg-[#080b10] px-5 py-6 text-slate-100 sm:px-8 lg:px-10"><div className="mx-auto max-w-6xl">
-    <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200">← Dashboard</Link><p className="mt-5 text-xs font-medium uppercase tracking-[0.15em] text-indigo-300">Weekly insights</p><h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">One week, three views of your process.</h1><p className="mt-2 text-sm text-slate-500">Rule-based findings from preparation, execution, and behaviour.</p></div><span className={`rounded-full px-3 py-1.5 text-xs font-medium ${isDemo ? "bg-amber-300/10 text-amber-100" : "bg-emerald-400/10 text-emerald-200"}`}>{isDemo ? "Demo data" : "Live weekly data"}</span></header>
+  return <AppShell>
+    <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="eyebrow text-violet-300">Weekly insights</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">Your process, seen clearly.</h1><p className="mt-2 text-sm text-slate-500">Rule-based findings across preparation, execution, and behaviour.</p></div><span className={`rounded-full px-3 py-1.5 text-xs font-medium ${isDemo ? "bg-amber-300/10 text-amber-100" : "bg-emerald-400/10 text-emerald-200"}`}>{isDemo ? "Demo data" : "Live weekly data"}</span></header>
     <p className="mb-5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-sm text-slate-400">{status}</p>
     <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Trading days" value={insights.overview.tradingDays} note="Journal and trade activity" /><Metric label="Net positive days" value={insights.overview.netPositiveDays} note="Daily outcome or summed P&L" tone="text-emerald-200" /><Metric label="Average discipline" value={`${insights.overview.averageDiscipline}/100`} note="Nine behaviour controls" tone="text-indigo-200" /><Metric label="Pre-trade checks" value={insights.overview.checklistCount} note="Decision gates completed" /></section>
 
@@ -84,5 +84,5 @@ export default function WeeklyInsightsPage() {
 
     <section className={`${card} mt-8 border-indigo-400/15 bg-indigo-400/[0.04]`}><p className="text-xs uppercase tracking-[0.15em] text-indigo-300">Combined next-week actions</p><h2 className="mt-1 text-lg font-semibold text-white">Recommendations across all three datasets</h2><ol className="mt-5 space-y-3">{insights.recommendations.map((item, index) => <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-indigo-400/10 text-xs font-semibold text-indigo-200">{index + 1}</span>{item}</li>)}</ol></section>
     <p className="mt-5 text-xs leading-5 text-slate-500">These are transparent rule-based summaries, not causal findings, predictions, or financial advice. No AI is used.</p>
-  </div></main>;
+  </AppShell>;
 }
