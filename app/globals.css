@@ -117,3 +117,310 @@ button, a { -webkit-tap-highlight-color: transparent; }
     min-height: 4.75rem;
   }
 }
+
+/* Shared form system used across preparation, trade and behaviour journals. */
+.decision-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.decision-form > section {
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.form-section {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: #0f131b;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.1);
+}
+
+.form-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.form-field {
+  display: block;
+  min-width: 0;
+}
+
+.form-label {
+  display: block;
+  color: #dbe2ee;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.3rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.15rem;
+}
+
+.form-eyebrow {
+  color: #a5b4fc;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.form-title {
+  margin-top: 0.25rem;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.6rem;
+}
+
+.form-description {
+  margin-top: 0.4rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.decision-form input:not([type="file"]),
+.decision-form select,
+.decision-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.75rem;
+  outline: none;
+  background: #090c12;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.decision-form input:not([type="file"]),
+.decision-form select {
+  height: 2.875rem;
+  padding: 0 0.875rem;
+}
+
+.decision-form textarea {
+  min-height: 7rem;
+  padding: 0.875rem;
+  line-height: 1.5rem;
+  resize: vertical;
+}
+
+.decision-form input::placeholder,
+.decision-form textarea::placeholder {
+  color: #475569;
+}
+
+.decision-form input:not([type="file"]):hover,
+.decision-form select:hover,
+.decision-form textarea:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.decision-form input:not([type="file"]):focus,
+.decision-form select:focus,
+.decision-form textarea:focus {
+  border-color: rgba(139, 92, 246, 0.75);
+  background: #0b0f17;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+}
+
+.form-segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  width: 100%;
+  min-height: 2.875rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.75rem;
+  background: #090c12;
+}
+
+.form-segment button {
+  min-width: 0;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-segment button:hover {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.form-segment button.is-positive {
+  background: rgba(52, 211, 153, 0.95);
+  color: #052e26;
+  box-shadow: 0 5px 15px rgba(16, 185, 129, 0.12);
+}
+
+.form-segment button.is-negative {
+  background: rgba(251, 113, 133, 0.92);
+  color: #3f0712;
+  box-shadow: 0 5px 15px rgba(244, 63, 94, 0.12);
+}
+
+.form-segment-compact {
+  width: 10rem;
+  min-height: 2.5rem;
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+.form-question-list {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.form-question {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.form-question:last-child {
+  border-bottom: 0;
+  padding-bottom: 0.25rem;
+}
+
+.question-index {
+  display: inline-block;
+  width: 2rem;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.question-help {
+  padding-left: 2rem;
+}
+
+.form-file {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.75rem;
+  background: #090c12;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
+.form-file::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: rgba(139, 92, 246, 0.12);
+  color: #c4b5fd;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form-upload-placeholder {
+  display: grid;
+  min-height: 10rem;
+  margin-top: 1rem;
+  place-items: center;
+  padding: 1rem;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: #090c12;
+  color: #475569;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.form-status {
+  padding: 0.875rem 1rem;
+  border: 1px solid;
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.form-status.is-success {
+  border-color: rgba(52, 211, 153, 0.2);
+  background: rgba(52, 211, 153, 0.08);
+  color: #a7f3d0;
+}
+
+.form-status.is-error {
+  border-color: rgba(251, 113, 133, 0.2);
+  background: rgba(251, 113, 133, 0.08);
+  color: #fecdd3;
+}
+
+.form-status.is-saving {
+  border-color: rgba(129, 140, 248, 0.2);
+  background: rgba(129, 140, 248, 0.08);
+  color: #c7d2fe;
+}
+
+.form-submit {
+  display: inline-flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 650;
+  box-shadow: 0 12px 30px rgba(76, 29, 149, 0.24);
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+.form-submit:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.form-submit:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  opacity: 0.55;
+  transform: none;
+}
+
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .decision-form > section {
+    padding: 1.25rem;
+  }
+
+  .form-question {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .form-segment-compact {
+    width: 100%;
+  }
+}
