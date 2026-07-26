@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 type Bias = "Bullish" | "Bearish" | "Neutral";
 
@@ -48,7 +51,18 @@ const assets: Array<{
   },
 ];
 
-function Icon({ name }: { name: "grid" | "brief" | "check" | "journal" | "chart" | "settings" }) {
+type IconName = "grid" | "brief" | "check" | "journal" | "chart" | "settings";
+
+const navigation: Array<{ icon: IconName; label: string; href: string }> = [
+  { icon: "grid", label: "Dashboard", href: "/" },
+  { icon: "brief", label: "Daily Brief", href: "#" },
+  { icon: "check", label: "Pre-trade Check", href: "#" },
+  { icon: "journal", label: "Trade Journal", href: "#" },
+  { icon: "settings", label: "Behaviour Journal", href: "/behaviour-journal" },
+  { icon: "chart", label: "Weekly Insights", href: "#" },
+];
+
+function Icon({ name }: { name: IconName }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
     brief: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
@@ -67,6 +81,8 @@ const biasStyles: Record<Bias, string> = {
 };
 
 export default function DashboardPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-[#080b10]">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
@@ -76,21 +92,32 @@ export default function DashboardPage() {
             <div><p className="text-sm font-semibold tracking-tight text-white">Trade Decision OS</p><p className="text-[11px] text-slate-500">PRIVATE WORKSPACE</p></div>
           </div>
           <nav className="space-y-1 text-sm">
-            {[["grid", "Dashboard", "/"], ["brief", "Daily Brief", "#"], ["check", "Pre-trade Check", "#"], ["journal", "Trade Journal", "#"], ["chart", "Weekly Insights", "#"]].map(([icon, label, href]) => (
+            {navigation.map(({ icon, label, href }) => (
               <Link href={href} key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left ${label === "Dashboard" ? "bg-indigo-500/12 text-indigo-200" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
-                <Icon name={icon as "grid"} /><span>{label}</span>
+                <Icon name={icon} /><span>{label}</span>
               </Link>
             ))}
           </nav>
           <div className="mt-auto border-t border-white/[0.07] pt-4">
-            <Link href="/behaviour-journal" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Icon name="settings" /> Behaviour journal</Link>
             <div className="mt-4 flex items-center gap-3 px-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-600 text-xs font-bold">M</div><div><p className="text-sm text-slate-200">Masigo</p><p className="text-xs text-slate-500">Private account</p></div></div>
           </div>
         </aside>
 
+        {menuOpen && <button aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden" />}
+        <aside aria-label="Mobile navigation" className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[0.08] bg-[#0b0f16] px-4 py-6 shadow-2xl shadow-black/50 transition-transform duration-200 lg:hidden ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <div className="mb-10 flex items-center justify-between px-2">
+            <div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-500 text-sm font-black text-white">T</div><div><p className="text-sm font-semibold text-white">Trade Decision OS</p><p className="text-[11px] text-slate-500">PRIVATE WORKSPACE</p></div></div>
+            <button aria-label="Close menu" onClick={() => setMenuOpen(false)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+          </div>
+          <nav className="space-y-1 text-sm">
+            {navigation.map(({ icon, label, href }) => <Link onClick={() => setMenuOpen(false)} href={href} key={label} className={`flex items-center gap-3 rounded-lg px-3 py-3 ${label === "Dashboard" ? "bg-indigo-500/12 text-indigo-200" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}><Icon name={icon} /><span>{label}</span></Link>)}
+          </nav>
+          <div className="mt-auto flex items-center gap-3 border-t border-white/[0.07] px-3 pt-5"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-600 text-xs font-bold">M</div><div><p className="text-sm text-slate-200">Masigo</p><p className="text-xs text-slate-500">Private account</p></div></div>
+        </aside>
+
         <section className="flex-1 px-5 py-6 sm:px-8 lg:px-10">
           <header className="mb-9 flex items-center justify-between">
-            <div><p className="mb-1 text-sm text-slate-500">Friday, 11 July 2026</p><h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Good morning, Masigo.</h1></div>
+            <div className="flex items-start gap-3"><button aria-label="Open navigation menu" onClick={() => setMenuOpen(true)} className="mt-1 grid h-10 w-10 place-items-center rounded-lg border border-white/[0.08] bg-[#0e131d] text-slate-300 transition hover:border-indigo-400/40 hover:text-white lg:hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div><p className="mb-1 text-sm text-slate-500">Friday, 11 July 2026</p><h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Good morning, Masigo.</h1></div></div>
             <button className="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400">New trade check</button>
           </header>
 
