@@ -1,0 +1,135 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+type QuestionKey =
+  | "slept_well"
+  | "felt_calm_before_trading"
+  | "felt_pressure_to_make_money"
+  | "traded_after_a_loss"
+  | "overtraded"
+  | "revenge_traded"
+  | "respected_stop"
+  | "followed_plan"
+  | "traded_during_news"
+  | "net_positive";
+
+type Answers = Record<QuestionKey, boolean | null>;
+
+const questions: Array<{ key: QuestionKey; label: string; help?: string }> = [
+  { key: "slept_well", label: "Did I sleep well?" },
+  { key: "felt_calm_before_trading", label: "Did I feel calm before trading?" },
+  { key: "felt_pressure_to_make_money", label: "Did I feel pressure to make money?" },
+  { key: "traded_after_a_loss", label: "Did I trade after a loss?" },
+  { key: "overtraded", label: "Did I overtrade?", help: "More entries than your written plan allowed." },
+  { key: "revenge_traded", label: "Did I revenge trade?" },
+  { key: "respected_stop", label: "Did I respect my stop?" },
+  { key: "followed_plan", label: "Did I follow my plan?" },
+  { key: "traded_during_news", label: "Did I trade during high-impact news?" },
+  { key: "net_positive", label: "Was the day net positive?" },
+];
+
+const initialAnswers = Object.fromEntries(questions.map(({ key }) => [key, null])) as Answers;
+
+export function BehaviourJournalForm() {
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [answers, setAnswers] = useState<Answers>(initialAnswers);
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  function setAnswer(key: QuestionKey, value: boolean) {
+    setAnswers((current) => ({ ...current, [key]: value }));
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const unanswered = questions.filter(({ key }) => answers[key] === null);
+
+    if (unanswered.length > 0) {
+      setStatus("error");
+      setMessage("Answer every question before saving your entry.");
+      return;
+    }
+
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw new Error("Sign in before saving a behaviour journal entry.");
+
+      const { error } = await supabase.from("behaviour_journal_entries").upsert(
+        {
+          user_id: authData.user.id,
+          entry_date: entryDate,
+          slept_well: answers.slept_well,
+          felt_calm_before_trading: answers.felt_calm_before_trading,
+          felt_pressure_to_make_money: answers.felt_pressure_to_make_money,
+          traded_after_a_loss: answers.traded_after_a_loss,
+          overtraded: answers.overtraded,
+          revenge_traded: answers.revenge_traded,
+          respected_stop: answers.respected_stop,
+          followed_plan: answers.followed_plan,
+          traded_during_news: answers.traded_during_news,
+          net_positive: answers.net_positive,
+          notes: notes.trim() || null,
+        },
+        { onConflict: "user_id,entry_date" },
+      );
+
+      if (error) throw error;
+      setStatus("success");
+      setMessage("Journal entry saved. It will feed your weekly insights.");
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Unable to save your entry. Please try again.");
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6">
+      <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5 sm:p-7">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/[0.07] pb-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-300">Daily check-in</p>
+            <h2 className="mt-1 text-xl font-semibold text-white">How did you show up today?</h2>
+            <p className="mt-2 text-sm text-slate-400">Answer honestly. This is a private signal, not a scorecard.</p>
+          </div>
+          <label className="text-sm text-slate-400">
+            <span className="mb-1.5 block text-xs uppercase tracking-wider text-slate-500">Entry date</span>
+            <input value={entryDate} onChange={(event) => setEntryDate(event.target.value)} type="date" className="rounded-lg border border-white/10 bg-[#080b10] px-3 py-2 text-slate-200 outline-none focus:border-indigo-400" />
+          </label>
+        </div>
+
+        <div className="mt-2 divide-y divide-white/[0.07]">
+          {questions.map(({ key, label, help }, index) => (
+            <fieldset key={key} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <legend className="text-sm font-medium text-slate-200"><span className="mr-3 text-xs text-slate-600">{String(index + 1).padStart(2, "0")}</span>{label}</legend>
+                {help && <p className="mt-1 pl-7 text-xs text-slate-500">{help}</p>}
+              </div>
+              <div className="grid grid-cols-2 rounded-lg border border-white/10 bg-[#080b10] p-1 sm:w-40">
+                {([true, false] as const).map((value) => {
+                  const selected = answers[key] === value;
+                  return <button key={String(value)} type="button" onClick={() => setAnswer(key, value)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${selected ? value ? "bg-emerald-400 text-[#06251d]" : "bg-rose-400 text-[#31080c]" : "text-slate-500 hover:text-slate-200"}`}>{value ? "Yes" : "No"}</button>;
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5 sm:p-7">
+        <label htmlFor="notes" className="text-sm font-medium text-slate-200">Optional note</label>
+        <p className="mt-1 text-sm text-slate-500">Capture context you may want to recognise later.</p>
+        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="What influenced your decisions today?" className="mt-4 w-full resize-y rounded-lg border border-white/10 bg-[#080b10] p-3 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-indigo-400" />
+      </section>
+
+      {status !== "idle" && <p className={`rounded-lg border px-4 py-3 text-sm ${status === "success" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : status === "error" ? "border-rose-400/20 bg-rose-400/10 text-rose-200" : "border-indigo-400/20 bg-indigo-400/10 text-indigo-200"}`}>{message || "Saving your entry…"}</p>}
+      <button disabled={status === "saving"} type="submit" className="w-full rounded-lg bg-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60">{status === "saving" ? "Saving entry…" : "Save behaviour journal"}</button>
+    </form>
+  );
+}
