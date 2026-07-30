@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type IconName = "dashboard" | "check" | "trade" | "behaviour" | "insights";
 
@@ -64,20 +66,110 @@ function Brand() {
   </Link>;
 }
 
+function SessionLoading() {
+  return <main className="grid min-h-screen place-items-center bg-[#090b10] text-slate-100">
+    <div className="text-center">
+      <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-sm font-bold text-white shadow-lg shadow-violet-950/30">TD</div>
+      <p className="mt-4 text-sm text-slate-500">Opening your private workspace…</p>
+    </div>
+  </main>;
+}
+
+function Account({
+  user,
+  onSignOut,
+}: {
+  user: User | null;
+  onSignOut: () => void;
+}) {
+  const email = user?.email ?? "Local demo · saving disabled";
+  const displayName = user
+    ? typeof user.user_metadata.display_name === "string"
+      ? user.user_metadata.display_name
+      : email.split("@")[0]
+    : "Presentation mode";
+  const initial = displayName.charAt(0).toUpperCase() || "M";
+
+  return <div className="app-shell-account rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3">
+    <div className="flex items-center gap-3">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-semibold text-slate-200 ring-1 ring-white/10">{initial}</div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-slate-200">{displayName}</p>
+        <p className="truncate text-[11px] text-slate-600">{email}</p>
+      </div>
+    </div>
+    {user ? <button
+      onClick={onSignOut}
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-xs font-medium text-slate-500 transition hover:border-white/[0.1] hover:bg-white/[0.05] hover:text-slate-200"
+    >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+          <path d="M10 17l5-5-5-5M15 12H3" />
+          <path d="M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" />
+        </svg>
+        <span>Sign out</span>
+    </button> : <div className="mt-3 rounded-xl border border-amber-300/10 bg-amber-300/[0.05] px-3 py-2 text-center text-[11px] font-medium text-amber-100/70">
+      Authentication bypassed
+    </div>}
+  </div>;
+}
+
 export function AppShell({ children, width = "wide" }: { children: ReactNode; width?: "wide" | "reading" }) {
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [checkingSession, setCheckingSession] = useState(!bypassAuth);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (bypassAuth) return;
+
+    const supabase = getSupabaseBrowserClient();
+    let active = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      if (!data.session?.user) {
+        const next = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+        router.replace(`/login${next}`);
+        return;
+      }
+      setUser(data.session.user);
+      setCheckingSession(false);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      if (!session?.user) {
+        setUser(null);
+        router.replace("/login");
+        return;
+      }
+      setUser(session.user);
+      setCheckingSession(false);
+    });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [bypassAuth, pathname, router]);
+
+  async function signOut() {
+    setCheckingSession(true);
+    await getSupabaseBrowserClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  if (!bypassAuth && (checkingSession || !user)) return <SessionLoading />;
 
   return <main className="min-h-screen bg-[#090b10] text-slate-100">
     <div className="app-shell-frame mx-auto flex min-h-screen">
       <aside className="app-desktop-sidebar app-shell-sidebar sticky top-0 h-screen shrink-0 flex-col border-r border-white/[0.06] bg-[#0b0e14]/95 px-4 py-6">
         <div className="px-2"><Brand /></div>
         <div className="app-shell-nav"><Navigation /></div>
-        <div className="app-shell-account rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-semibold text-slate-200 ring-1 ring-white/10">M</div>
-            <div className="min-w-0"><p className="truncate text-sm font-medium text-slate-200">Masigo</p><p className="text-[11px] text-slate-600">Private workspace</p></div>
-          </div>
-        </div>
+        <Account user={user} onSignOut={signOut} />
       </aside>
 
       {menuOpen && <button aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" />}
@@ -89,6 +181,7 @@ export function AppShell({ children, width = "wide" }: { children: ReactNode; wi
           </button>
         </div>
         <div className="app-shell-nav"><Navigation onNavigate={() => setMenuOpen(false)} /></div>
+        <Account user={user} onSignOut={signOut} />
       </aside>
 
       <div className="app-shell-main">

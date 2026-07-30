@@ -4,7 +4,7 @@
 create extension if not exists "pgcrypto";
 
 create type public.asset_symbol as enum ('XAUUSD', 'NAS100', 'GER40');
-create type public.market_bias as enum ('bullish', 'bearish', 'neutral');
+create type public.market_bias as enum ('bullish', 'bearish', 'neutral', 'mixed');
 create type public.trade_direction as enum ('long', 'short');
 create type public.trade_status as enum ('planned', 'open', 'closed', 'cancelled');
 create type public.trade_outcome as enum ('win', 'loss', 'breakeven');
@@ -193,10 +193,13 @@ create policy "users can manage their own behaviour entries" on public.behaviour
 create policy "users can manage their own weekly insights" on public.weekly_insights
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Assets are shared reference data. Authenticated users can read them, while
+-- mutations remain service-role/admin only for the private MVP.
 alter table public.assets enable row level security;
 create policy "authenticated users can read assets" on public.assets
   for select to authenticated using (true);
 
+-- Create an application profile when a Supabase Auth user is created.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
