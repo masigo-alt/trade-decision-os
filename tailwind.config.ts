@@ -7,7 +7,13 @@ const config: Config = {
     "./lib/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        bull: "#34d399",
+        bear: "#fb7185",
+        neutral: "#fbbf24",
+      },
+    },
   },
   plugins: [],
 };

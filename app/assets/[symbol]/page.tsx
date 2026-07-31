@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { DemoBadge } from "@/components/demo-badge";
+import { TradingViewChart } from "@/components/tradingview-chart";
+import { getAsset } from "@/lib/assets";
+import type { Quote } from "@/lib/market-data";
 
 type Bias = "Bullish" | "Bearish" | "Neutral" | "Mixed";
 
@@ -77,15 +82,59 @@ function ScenarioList({ title, tone, items }: { title: string; tone: "long" | "s
   return <section className={`rounded-2xl border p-5 ${tone === "long" ? "border-emerald-400/15 bg-emerald-400/[0.045]" : "border-rose-400/15 bg-rose-400/[0.045]"}`}><p className={`text-xs font-medium uppercase tracking-[0.15em] ${tone === "long" ? "text-emerald-300" : "text-rose-300"}`}>{title}</p><ul className="mt-4 space-y-3">{items.map((item) => <li key={item} className="flex gap-3 text-sm leading-5 text-slate-300"><span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${tone === "long" ? "bg-emerald-300" : "bg-rose-300"}`} />{item}</li>)}</ul></section>;
 }
 
+function PriceLine({ quote }: { quote: Quote | null }) {
+  if (!quote || !quote.live || quote.price === null) return <div className="mt-2 flex items-center gap-2"><span className="text-xl font-semibold tracking-[-0.02em] text-slate-600">—</span><DemoBadge /></div>;
+
+  const up = (quote.changePct ?? 0) >= 0;
+  return <div className="mt-2 flex items-center gap-2"><span className="text-xl font-semibold tracking-[-0.02em] text-white">{quote.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>{quote.changePct !== null && <span className={`text-sm font-medium ${up ? "text-emerald-300" : "text-rose-300"}`}>{up ? "+" : ""}{quote.changePct.toFixed(2)}%</span>}</div>;
+}
+
+function LiveChartSection({ tvSymbol }: { tvSymbol: string }) {
+  return <section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5"><p className="text-xs uppercase tracking-[0.15em] text-slate-500">Live chart</p><div className="mt-4"><TradingViewChart tvSymbol={tvSymbol} /></div></section>;
+}
+
 export default function AssetDetailPage() {
   const params = useParams<{ symbol: string }>();
-  const brief = briefs[params.symbol?.toUpperCase()];
+  const asset = getAsset(params.symbol?.toUpperCase());
+  const brief = asset ? briefs[asset.symbol] : undefined;
+  const [quote, setQuote] = useState<Quote | null>(null);
 
-  if (!brief) return <main className="grid min-h-screen place-items-center bg-[#080b10] p-6 text-center"><div><p className="text-sm text-slate-500">Asset not found</p><Link href="/" className="mt-3 inline-block text-indigo-300">← Return to dashboard</Link></div></main>;
+  useEffect(() => {
+    const symbol = asset?.symbol;
+    if (!symbol) return;
+    let active = true;
 
-  return <AppShell><header className="mb-8"><Link href="/" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">← All markets</Link><div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow text-slate-600">Asset context</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">{brief.name} <span className="font-normal text-slate-600">/ {brief.symbol}</span></h1></div><div className="flex items-center gap-3"><span className={`rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${biasStyle[brief.bias]}`}>{brief.bias} context</span><div className="surface px-4 py-2 text-right"><p className="eyebrow text-slate-600">Conviction</p><p className="text-lg font-semibold text-white">{brief.conviction}<span className="text-xs text-slate-600">/100</span></p></div></div></div></header>
+    fetch(`/api/quotes?symbols=${encodeURIComponent(symbol)}`)
+      .then((res) => res.json())
+      .then((data: { quotes: Quote[] }) => {
+        if (!active) return;
+        setQuote(data.quotes.find((q) => q.symbol === symbol) ?? null);
+      })
+      .catch(() => {
+        if (active) setQuote(null);
+      });
 
-    <section className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/[0.12] via-[#121827] to-[#0d1119] p-6"><p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-200">Decision-support summary</p><p className="mt-3 max-w-4xl text-lg leading-7 text-slate-100">{brief.summary}</p></section>
+    return () => {
+      active = false;
+    };
+  }, [asset?.symbol]);
+
+  if (!asset) return <main className="grid min-h-screen place-items-center bg-[#080b10] p-6 text-center"><div><p className="text-sm text-slate-500">Asset not found</p><Link href="/" className="mt-3 inline-block text-indigo-300">← Return to dashboard</Link></div></main>;
+
+  if (!brief) return <AppShell><header className="mb-8"><Link href="/" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">← All markets</Link><div className="mt-5"><p className="eyebrow text-slate-600">Asset context</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">{asset.name} <span className="font-normal text-slate-600">/ {asset.symbol}</span></h1><PriceLine quote={quote} /></div></header>
+
+    <LiveChartSection tvSymbol={asset.tvSymbol} />
+
+    <section className="mt-5 rounded-2xl border border-white/[0.08] bg-[#0e131d] p-6"><div className="flex items-center justify-between gap-3"><p className="text-xs uppercase tracking-[0.15em] text-slate-500">Market context</p><DemoBadge label="No analysis yet" /></div><p className="mt-3 text-sm leading-6 text-slate-500">No written context yet for this market.</p></section>
+
+    <aside className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-xs leading-5 text-slate-500">This page provides market context and decision support for educational purposes. It is not financial advice, a recommendation, or a solicitation to transact. Consider your own objectives, risk tolerance, and professional advice before making any decision.</aside>
+  </AppShell>;
+
+  return <AppShell><header className="mb-8"><Link href="/" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">← All markets</Link><div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow text-slate-600">Asset context</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">{asset.name} <span className="font-normal text-slate-600">/ {asset.symbol}</span></h1><PriceLine quote={quote} /></div><div className="flex items-center gap-3"><span className={`rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${biasStyle[brief.bias]}`}>{brief.bias} context</span><div className="surface px-4 py-2 text-right"><p className="eyebrow text-slate-600">Conviction</p><p className="text-lg font-semibold text-white">{brief.conviction}<span className="text-xs text-slate-600">/100</span></p></div></div></div></header>
+
+    <LiveChartSection tvSymbol={asset.tvSymbol} />
+
+    <section className="mt-5 rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/[0.12] via-[#121827] to-[#0d1119] p-6"><div className="flex items-center justify-between gap-3"><p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-200">Decision-support summary</p><DemoBadge label="Illustrative — not live analysis" /></div><p className="mt-3 max-w-4xl text-lg leading-7 text-slate-100">{brief.summary}</p></section>
 
     <div className="mt-5 grid gap-5 lg:grid-cols-3"><section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5"><p className="text-xs uppercase tracking-[0.15em] text-slate-500">Macro backdrop</p><p className="mt-3 text-sm leading-6 text-slate-300">{brief.macro}</p></section><section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5"><p className="text-xs uppercase tracking-[0.15em] text-slate-500">Sentiment backdrop</p><p className="mt-3 text-sm leading-6 text-slate-300">{brief.sentiment}</p></section><section className="rounded-2xl border border-white/[0.08] bg-[#0e131d] p-5"><p className="text-xs uppercase tracking-[0.15em] text-slate-500">Current price behaviour</p><p className="mt-3 text-sm leading-6 text-slate-300">{brief.priceBehaviour}</p></section></div>
 
