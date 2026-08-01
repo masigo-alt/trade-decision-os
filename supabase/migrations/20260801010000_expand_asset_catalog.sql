@@ -1,12 +1,14 @@
--- Trade Decision OS — supported market catalogue
--- Idempotent: safe to run against a database after the asset-symbol expansion
--- migration. Existing asset UUIDs remain unchanged.
---
--- How to run:
---   Supabase CLI, local dev: runs automatically as part of `supabase db reset`.
---   Supabase CLI, any project: supabase db execute --file supabase/seed.sql
---   No CLI: paste this file's contents into the Supabase Studio SQL editor and run.
---   psql directly: psql "$DATABASE_URL" -f supabase/seed.sql
+-- Allow every supported market to be journaled while preserving the existing
+-- asset UUIDs referenced by checklists, trades, and daily briefs.
+
+alter table public.assets
+  alter column symbol type text using symbol::text;
+
+drop type public.asset_symbol;
+
+alter table public.assets
+  add constraint assets_symbol_format_check
+  check (symbol ~ '^[A-Z0-9]+$');
 
 insert into public.assets (symbol, name, market) values
   ('XAUUSD', 'Gold', 'Metals'),
@@ -42,3 +44,6 @@ on conflict (symbol) do update set
   market = excluded.market,
   is_active = true,
   updated_at = now();
+
+comment on column public.assets.symbol is
+  'Stable uppercase market identifier drawn from the supported market catalogue.';

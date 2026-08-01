@@ -1,13 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import type { Database } from "@/lib/database.types";
+import { assetOptionLabel, useJournalAssets } from "@/lib/journal-assets";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const assets = [
-  { value: "XAUUSD", label: "Gold / XAUUSD" },
-  { value: "NAS100", label: "Nasdaq 100" },
-  { value: "GER40", label: "GER40 / DAX" },
-];
+type ChecklistRecommendation = Database["public"]["Enums"]["checklist_recommendation"];
+type RecentChecklist = Pick<
+  Database["public"]["Tables"]["pre_trade_checklists"]["Row"],
+  "id" | "submitted_at" | "recommendation" | "setup_type" | "direction" | "risk_percent"
+> & {
+  assets: { name: string; symbol: string } | null;
+};
 
 type Result = "win" | "loss" | "breakeven";
 
@@ -38,6 +42,10 @@ function ScreenshotPicker({ label, file, onChange, tone }: { label: string; file
 
 export function TradeJournalForm() {
   const [asset, setAsset] = useState("XAUUSD");
+  const { watchlistAssets, otherAssets, status: assetStatus } = useJournalAssets();
+  const [recentChecklists, setRecentChecklists] = useState<RecentChecklist[]>([]);
+  const [selectedChecklistId, setSelectedChecklistId] = useState("");
+  const [checklistLoadStatus, setChecklistLoadStatus] = useState<"loading" | "ready" | "error">("loading");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [setupType, setSetupType] = useState("");
@@ -58,6 +66,36 @@ export function TradeJournalForm() {
   const [afterScreenshot, setAfterScreenshot] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRecentChecklists() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) throw new Error("Sign in to load recent pre-trade checklists.");
+
+        const { data, error } = await supabase
+          .from("pre_trade_checklists")
+          .select("id,submitted_at,recommendation,setup_type,direction,risk_percent,assets(name,symbol)")
+          .order("submitted_at", { ascending: false })
+          .limit(20);
+
+        if (error) throw error;
+        if (!active) return;
+        setRecentChecklists((data ?? []) as RecentChecklist[]);
+        setChecklistLoadStatus("ready");
+      } catch {
+        if (active) setChecklistLoadStatus("error");
+      }
+    }
+
+    loadRecentChecklists();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function uploadScreenshot(file: File, userId: string, tradeId: string, phase: "before" | "after") {
     const supabase = getSupabaseBrowserClient();
@@ -83,7 +121,8 @@ export function TradeJournalForm() {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sign in before saving a trade journal entry.");
       const { data: assetRow, error: assetError } = await supabase.from("assets").select("id").eq("symbol", asset).single();
-      if (assetError || !assetRow) throw new Error("The selected asset could not be found.");
+      if (assetError) throw new Error(`The selected asset could not be loaded: ${assetError.message}`);
+      if (!assetRow) throw new Error("The selected asset could not be found.");
 
       const tradeId = crypto.randomUUID();
       const beforePath = beforeScreenshot ? await uploadScreenshot(beforeScreenshot, authData.user.id, tradeId, "before") : null;
@@ -91,17 +130,22 @@ export function TradeJournalForm() {
       const numericPnl = pnl.trim() === "" ? null : Number(pnl);
       const numericRisk = riskAmount.trim() === "" ? null : Number(riskAmount);
       const numericTarget = targetAmount.trim() === "" ? null : Number(targetAmount);
+      const realisedRMultiple = numericPnl !== null && numericRisk !== null && numericRisk > 0
+        ? Math.round((numericPnl / numericRisk) * 100) / 100
+        : null;
 
       const { error } = await supabase.from("trades").insert({
         id: tradeId,
         user_id: authData.user.id,
         asset_id: assetRow.id,
+        checklist_id: selectedChecklistId || null,
         date,
         direction,
         setup_type: setupType.trim(),
         status: "closed",
         result,
         pnl: numericPnl,
+        realised_r_multiple: realisedRMultiple,
         risk_amount: numericRisk,
         target_amount: numericTarget,
         currency: "USD",
@@ -128,9 +172,16 @@ export function TradeJournalForm() {
 
   const inputClass = "mt-2 w-full rounded-lg border border-white/10 bg-[#080b10] px-3 py-2.5 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-indigo-400";
   const textAreaClass = `${inputClass} resize-y`;
+  const compatibleChecklists = recentChecklists.filter((checklist) => checklist.assets?.symbol === asset);
+  const recommendationLabel: Record<ChecklistRecommendation, string> = {
+    proceed: "Proceed",
+    wait: "Wait",
+    reduce_size: "Reduce Size",
+    avoid: "Avoid",
+  };
 
   return <form onSubmit={submit} className="decision-form">
-    <section className="form-section"><p className="form-eyebrow">Trade details</p><h2 className="form-title">Record the execution context.</h2><p className="form-description">Start with the facts of the trade before reviewing the outcome.</p><div className="form-grid mt-5"><label className="form-field"><FieldLabel>Trading pair</FieldLabel><select value={asset} onChange={(event) => setAsset(event.target.value)} className={inputClass}>{assets.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="form-field"><FieldLabel>Date</FieldLabel><input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label><fieldset className="form-field"><FieldLabel>Direction</FieldLabel><div className="form-segment">{(["long", "short"] as const).map((value) => <button key={value} type="button" onClick={() => setDirection(value)} className={`capitalize ${direction === value ? value === "long" ? "is-positive" : "is-negative" : ""}`}>{value}</button>)}</div></fieldset><label className="form-field"><FieldLabel>Entry / setup type</FieldLabel><input value={setupType} onChange={(event) => setSetupType(event.target.value)} placeholder="e.g. Risk entry, break and retest" className={inputClass} /></label></div></section>
+    <section className="form-section"><p className="form-eyebrow">Trade details</p><h2 className="form-title">Record the execution context.</h2><p className="form-description">Start with the facts of the trade before reviewing the outcome.</p><div className="form-grid mt-5"><label className="form-field"><FieldLabel>Trading pair</FieldLabel><select value={asset} onChange={(event) => { setAsset(event.target.value); setSelectedChecklistId(""); }} className={inputClass}><optgroup label="My watchlist">{watchlistAssets.map((item) => <option key={item.id} value={item.symbol}>{assetOptionLabel(item)}</option>)}</optgroup>{otherAssets.length > 0 && <optgroup label="All supported markets">{otherAssets.map((item) => <option key={item.id} value={item.symbol}>{assetOptionLabel(item)}</option>)}</optgroup>}</select><span className="form-help">{assetStatus === "loading" ? "Loading the supported market catalogue…" : assetStatus === "fallback" ? "Showing the local market catalogue while Supabase reconnects." : `${watchlistAssets.length} watchlist markets shown first; all ${watchlistAssets.length + otherAssets.length} markets can be journaled.`}</span></label><label className="form-field"><FieldLabel>Date</FieldLabel><input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></label><fieldset className="form-field"><FieldLabel>Direction</FieldLabel><div className="form-segment">{(["long", "short"] as const).map((value) => <button key={value} type="button" onClick={() => setDirection(value)} className={`capitalize ${direction === value ? value === "long" ? "is-positive" : "is-negative" : ""}`}>{value}</button>)}</div></fieldset><label className="form-field"><FieldLabel>Entry / setup type</FieldLabel><input value={setupType} onChange={(event) => setSetupType(event.target.value)} placeholder="e.g. Risk entry, break and retest" className={inputClass} /></label><label className="form-field sm:col-span-2"><FieldLabel>Related pre-trade checklist (optional)</FieldLabel><select value={selectedChecklistId} onChange={(event) => setSelectedChecklistId(event.target.value)} className={inputClass}><option value="">Not linked to a checklist</option>{compatibleChecklists.map((checklist) => <option key={checklist.id} value={checklist.id}>{new Date(checklist.submitted_at).toLocaleDateString("en-ZA", { day: "2-digit", month: "short" })} · {recommendationLabel[checklist.recommendation]} · {checklist.direction} · {checklist.setup_type} · {Number(checklist.risk_percent)}% risk</option>)}</select><span className="form-help">{checklistLoadStatus === "loading" ? "Loading your recent decision gates…" : checklistLoadStatus === "error" ? "Recent checklists could not be loaded. You can still save the trade unlinked." : compatibleChecklists.length ? "Link the decision made before this trade so Weekly Insights can compare preparation with outcome." : `No recent ${asset} checklists found. Complete a pre-trade check first or save this trade unlinked.`}</span></label></div></section>
 
     <section className="rounded-2xl border border-indigo-400/15 bg-indigo-400/[0.04] p-5 sm:p-7"><p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-300">Before the trade</p><div className="mt-5 space-y-5"><label className="block"><FieldLabel>Before analysis</FieldLabel><textarea rows={5} value={beforeAnalysis} onChange={(event) => setBeforeAnalysis(event.target.value)} placeholder="Describe structure, context, levels, and the scenario you expected." className={textAreaClass} /></label><label className="block"><FieldLabel>Reason(s) for entry</FieldLabel><textarea rows={5} value={entryReason} onChange={(event) => setEntryReason(event.target.value)} placeholder="What specifically justified the entry at that moment?" className={textAreaClass} /></label><ScreenshotPicker label="Screenshot before" file={beforeScreenshot} onChange={setBeforeScreenshot} tone="indigo" /></div></section>
 

@@ -53,7 +53,8 @@ export const MARKET_CATALOG: Asset[] = [
   { symbol: "SOLUSD", name: "Solana", market: "Crypto", group: "Crypto", yahoo: "SOL-USD", tvSymbol: "COINBASE:SOLUSD" },
 ];
 
-// Lerato's preferred markets — the default watchlist and the set wired for journaling.
+// Lerato's preferred markets — the default watchlist. Every catalogue market
+// remains available in the journal forms.
 export const DEFAULT_SYMBOLS = ["XAUUSD", "NAS100", "GER40"];
 
 // Kept for existing imports: the default markets.

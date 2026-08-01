@@ -13,30 +13,33 @@ Most of this is written so you can hand it to **Codex** and let it execute. A fe
 
 Your Supabase project already exists — this is about connecting to it and confirming its state, not creating it.
 
-- [ ] 🧑 **Grab the Project URL + publishable (anon) key** from *Project Settings → API*, put them in `.env.local` (repo root), and turn bypass off:
+- [x] 🧑 **Grab the Project URL + publishable (anon) key** from *Project Settings → API*, put them in `.env.local` (repo root), and turn bypass off:
   ```env
   NEXT_PUBLIC_SUPABASE_URL=https://<your-ref>.supabase.co
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your-publishable-anon-key>
   NEXT_PUBLIC_BYPASS_AUTH=false
   ```
   The publishable/anon key is public by design (it ships in the browser bundle), so it's safe to share with Dewald if you want him developing against real data — otherwise the frontend just stays in presentation mode. `.env.local` is gitignored — never commit it.
-- [ ] 🧑 **Link the Supabase CLI** to your project so Codex can run the DB steps: `supabase login`, then `supabase link --project-ref <your-ref>`.
+- [x] 🧑 **Link the Supabase CLI** to your project so Codex can run the DB steps: `supabase login`, then `supabase link --project-ref <your-ref>`.
 - [ ] 🧑 **Confirm the two user accounts** exist under *Authentication → Users* (add email+password users for you and Dewald if missing — there's no self-serve signup).
+  - Foundation audit on 1 August 2026 found one active Auth user and one matching app profile. Dewald has now been invited; the two-user isolation test remains pending until he accepts and activates his account.
 
 ---
 
 ## Part B — Codex can execute these (after Part A)
 
-- [ ] 🤖 **Reconcile migrations with your existing project.** This session added **no** schema migrations (only frontend + `seed.sql`), so your DB may already be in sync. Run `supabase migration list` to compare `supabase/migrations/*.sql` against what's applied, and `supabase db push` anything missing. Confirm all 7 tables + RLS exist (`users`, `assets`, `market_briefs`, `pre_trade_checklists`, `trades`, `behaviour_journal_entries`, `weekly_insights`) plus the private `trade-journal-screenshots` storage bucket. *(The feature work further down **will** introduce new migrations.)*
-- [ ] 🤖 **Seed the reference data.** Run `supabase/seed.sql` (idempotent — inserts the 3 default assets: XAUUSD, NAS100, GER40). Run it via the Supabase SQL editor or `psql "$DATABASE_URL" -f supabase/seed.sql`.
-- [ ] 🤖 **Generate typed DB bindings** for safety: `supabase gen types typescript --linked > lib/database.types.ts`, then thread the type into `getSupabaseBrowserClient()` in `lib/supabase/client.ts` (`createClient<Database>(...)`). Optional but recommended after 6 migrations of schema churn.
+- [x] 🤖 **Reconcile migrations with your existing project.** This session added **no** schema migrations (only frontend + `seed.sql`), so your DB may already be in sync. Run `supabase migration list` to compare `supabase/migrations/*.sql` against what's applied, and `supabase db push` anything missing. Confirm all 7 tables + RLS exist (`users`, `assets`, `market_briefs`, `pre_trade_checklists`, `trades`, `behaviour_journal_entries`, `weekly_insights`) plus the private `trade-journal-screenshots` storage bucket. *(The feature work further down **will** introduce new migrations.)*
+  - Migration history was repaired to match the six schema stages already present. A seventh migration now grants the authenticated role table access while RLS remains the row-ownership boundary.
+- [x] 🤖 **Seed the reference data.** Run `supabase/seed.sql` (idempotent — inserts the 3 default assets: XAUUSD, NAS100, GER40). Run it via the Supabase SQL editor or `psql "$DATABASE_URL" -f supabase/seed.sql`.
+- [x] 🤖 **Generate typed DB bindings** for safety: `supabase gen types typescript --linked > lib/database.types.ts`, then thread the type into `getSupabaseBrowserClient()` in `lib/supabase/client.ts` (`createClient<Database>(...)`). Optional but recommended after 6 migrations of schema churn.
 - [ ] 🤖 **Smoke-test auth + RLS.** With `NEXT_PUBLIC_BYPASS_AUTH=false`, sign in as a provisioned user and confirm the journals save. Add (or at least document) a check that user B cannot read user A's `trades` — RLS is the only wall, so protect it against future migrations.
+  - Auth plus checklist, behaviour, and trade persistence passed. Temporary test rows were removed. Policy definitions and storage privileges were verified; a true cross-user test remains pending until a second Auth account exists.
 
 ### Higher-value feature work Codex can build (schema is already ready)
 
 - [ ] 🤖 **Decision → outcome linkage** — *the single highest-value feature and the whole point of the app.* The `trades` table already has a `checklist_id` FK to `pre_trade_checklists` (since the initial migration) but nothing populates it. Add a "link a recent pre-trade checklist" selector to the trade-journal form (`components/trade-journal-form.tsx`), then add a "gate adherence vs. outcome" stat to Weekly Insights (`lib/weekly-insights.ts` + `app/weekly-insights/page.tsx`) — e.g. *"trades taken on Proceed vs. against a Wait/Avoid, and their combined R."*
-- [ ] 🤖 **Persist Weekly Insights.** Today `app/weekly-insights/page.tsx` recomputes everything client-side each visit; the `weekly_insights` table is never written. Add a "Save this week's report" write (or auto-write on week rollover) and a small history list, so improvement is visible month-over-month.
-- [ ] 🤖 **Let watchlist markets be journaled (enum → FK).** The DB `asset_symbol` enum is fixed to `XAUUSD/NAS100/GER40`, so markets added via the new "Manage markets" watchlist can be *charted and watched* but **not journaled**. To fix: migrate the `assets.symbol` / trade `asset_id` relationship off the enum to a `text` symbol + FK, then seed the full `MARKET_CATALOG` from `lib/assets.ts` (28 markets) into the `assets` table, and switch the pre-trade/trade forms' asset dropdowns to read from the watchlist/`assets` table instead of their hardcoded 3-item lists.
+- [x] 🤖 **Persist Weekly Insights.** The page now provides an idempotent "Save this week’s report" action and a 12-week history backed by `weekly_insights`, including the rule-based summary, patterns, recommendations, and decision-to-outcome correlations.
+- [x] 🤖 **Let watchlist markets be journaled (enum → FK).** `assets.symbol` now uses validated text, all 28 supported markets are seeded without changing existing asset UUIDs, and both journal forms load Supabase assets with the managed watchlist shown first and the complete catalogue available underneath.
 
 ### Optional / nice-to-have (Codex can do, not required)
 

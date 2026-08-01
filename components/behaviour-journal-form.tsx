@@ -33,6 +33,10 @@ const questions: Array<{ key: QuestionKey; label: string; help?: string }> = [
 
 const initialAnswers = Object.fromEntries(questions.map(({ key }) => [key, null])) as Answers;
 
+function answersAreComplete(answers: Answers): answers is Record<QuestionKey, boolean> {
+  return questions.every(({ key }) => answers[key] !== null);
+}
+
 export function BehaviourJournalForm() {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
@@ -54,9 +58,7 @@ export function BehaviourJournalForm() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const unanswered = questions.filter(({ key }) => answers[key] === null);
-
-    if (unanswered.length > 0) {
+    if (!answersAreComplete(answers)) {
       setStatus("error");
       setMessage("Answer every question before saving your entry.");
       return;

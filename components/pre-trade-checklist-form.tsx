@@ -1,14 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { assetOptionLabel, useJournalAssets } from "@/lib/journal-assets";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { decidePreTrade } from "@/lib/pre-trade-decision";
-
-const assets = [
-  { value: "XAUUSD", label: "Gold / XAUUSD" },
-  { value: "NAS100", label: "Nasdaq 100" },
-  { value: "GER40", label: "GER40 / DAX" },
-];
 
 type CheckKey = "economicCalendarChecked" | "marketConditionsSupportIdea" | "hasClearInvalidation" | "riskRewardAcceptable" | "matchesTradingPlan" | "emotionalStateAcceptable";
 
@@ -23,8 +18,15 @@ const checks: Array<{ key: CheckKey; label: string; help?: string }> = [
 
 const defaultChecks = Object.fromEntries(checks.map(({ key }) => [key, null])) as Record<CheckKey, boolean | null>;
 
+function checksAreComplete(
+  answers: Record<CheckKey, boolean | null>,
+): answers is Record<CheckKey, boolean> {
+  return checks.every(({ key }) => answers[key] !== null);
+}
+
 export function PreTradeChecklistForm() {
   const [asset, setAsset] = useState("XAUUSD");
+  const { watchlistAssets, otherAssets, status: assetStatus } = useJournalAssets();
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [setupType, setSetupType] = useState("");
   const [risk, setRisk] = useState("1");
@@ -33,16 +35,16 @@ export function PreTradeChecklistForm() {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  const allAnswered = checks.every(({ key }) => answers[key] !== null);
+  const allAnswered = checksAreComplete(answers);
   const numericRisk = Number(risk);
   const decision = allAnswered && Number.isFinite(numericRisk) && numericRisk > 0
-    ? decidePreTrade({ plannedRiskPercentage: numericRisk, ...answers as Record<CheckKey, boolean> })
+    ? decidePreTrade({ plannedRiskPercentage: numericRisk, ...answers })
     : null;
   const decisionStyle = decision?.recommendation === "proceed" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : decision?.recommendation === "avoid" ? "border-rose-400/20 bg-rose-400/10 text-rose-200" : decision?.recommendation === "reduce_size" ? "border-orange-400/20 bg-orange-400/10 text-orange-200" : "border-amber-300/20 bg-amber-300/10 text-amber-100";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!setupType.trim() || !allAnswered || !decision || !Number.isFinite(numericRisk) || numericRisk <= 0 || numericRisk > 100) {
+    if (!setupType.trim() || !checksAreComplete(answers) || !decision || !Number.isFinite(numericRisk) || numericRisk <= 0 || numericRisk > 100) {
       setStatus("error");
       setMessage("Complete every field and use a valid planned risk percentage.");
       return;
@@ -56,7 +58,8 @@ export function PreTradeChecklistForm() {
       if (authError || !authData.user) throw new Error("Sign in before saving a pre-trade checklist.");
 
       const { data: assetRow, error: assetError } = await supabase.from("assets").select("id").eq("symbol", asset).single();
-      if (assetError || !assetRow) throw new Error("The selected asset could not be found.");
+      if (assetError) throw new Error(`The selected asset could not be loaded: ${assetError.message}`);
+      if (!assetRow) throw new Error("The selected asset could not be found.");
 
       const { error } = await supabase.from("pre_trade_checklists").insert({
         user_id: authData.user.id,
@@ -87,7 +90,7 @@ export function PreTradeChecklistForm() {
   return <form onSubmit={submit} className="decision-form">
     <section className="form-section">
       <div className="form-grid">
-        <label className="form-field"><span className="form-label">Asset</span><select value={asset} onChange={(event) => setAsset(event.target.value)}>{assets.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <label className="form-field"><span className="form-label">Asset</span><select value={asset} onChange={(event) => setAsset(event.target.value)}><optgroup label="My watchlist">{watchlistAssets.map((item) => <option key={item.id} value={item.symbol}>{assetOptionLabel(item)}</option>)}</optgroup>{otherAssets.length > 0 && <optgroup label="All supported markets">{otherAssets.map((item) => <option key={item.id} value={item.symbol}>{assetOptionLabel(item)}</option>)}</optgroup>}</select><span className="form-help">{assetStatus === "loading" ? "Loading the supported market catalogue…" : assetStatus === "fallback" ? "Showing the local market catalogue while Supabase reconnects." : `${watchlistAssets.length} watchlist markets shown first; all ${watchlistAssets.length + otherAssets.length} markets can be journaled.`}</span></label>
         <fieldset className="form-field"><legend className="form-label">Intended direction</legend><div className="form-segment">{(["long", "short"] as const).map((value) => <button key={value} type="button" onClick={() => setDirection(value)} className={`capitalize ${direction === value ? value === "long" ? "is-positive" : "is-negative" : ""}`}>{value}</button>)}</div></fieldset>
         <label className="form-field"><span className="form-label">Setup type</span><input value={setupType} onChange={(event) => setSetupType(event.target.value)} placeholder="e.g. Break and retest" /></label>
         <label className="form-field"><span className="form-label">Planned risk percentage</span><input value={risk} min="0.01" max="100" step="0.01" onChange={(event) => setRisk(event.target.value)} type="number" /><span className="form-help">Percentage of account equity at risk.</span></label>
