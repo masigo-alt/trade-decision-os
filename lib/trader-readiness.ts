@@ -33,7 +33,7 @@ const requiredFields: Array<keyof Omit<BehaviourReadinessInput, "net_positive">>
 ];
 
 /**
- * Converts an honest daily behaviour check-in into a conservative risk posture.
+ * Converts an honest pre-market behaviour check-in into a conservative risk posture.
  * `net_positive` is intentionally excluded: a realised result should not be used
  * as a signal that the next trade deserves more risk.
  */
@@ -49,12 +49,12 @@ export function scoreTraderReadiness(input: BehaviourReadinessInput): TraderRead
   input.slept_well ? add(8, "Rest supports better decisions") : add(-12, "Poor sleep reduces decision quality");
   input.felt_calm_before_trading ? add(10, "You reported a calm baseline") : add(-16, "Lack of calm is a meaningful risk signal");
   if (input.felt_pressure_to_make_money) add(-18, "Pressure to make money raises impulsivity risk");
-  if (input.traded_after_a_loss) add(-10, "Trading after a loss needs extra discipline");
-  if (input.overtraded) add(-14, "Overtrading suggests lower selectivity");
-  if (input.revenge_traded) add(-25, "Revenge trading is a hard risk warning");
-  input.respected_stop ? add(8, "You respected your risk limit") : add(-18, "A broken stop is a hard risk warning");
-  input.followed_plan ? add(12, "You followed your stated plan") : add(-22, "Not following the plan is a hard risk warning");
-  if (input.traded_during_news) add(-8, "News-time execution adds volatility risk");
+  if (input.traded_after_a_loss) add(-10, "A recent loss is influencing your decision state");
+  if (input.overtraded) add(-14, "You reported a risk of forcing trades or lowering standards");
+  if (input.revenge_traded) add(-25, "The urge to recover money is a hard risk warning");
+  input.respected_stop ? add(8, "You are prepared to respect your risk limit") : add(-18, "No commitment to the stop is a hard risk warning");
+  input.followed_plan ? add(12, "You are committed to your stated plan") : add(-22, "No commitment to the plan is a hard risk warning");
+  if (input.traded_during_news) add(-8, "Considering unplanned news exposure adds volatility risk");
 
   score = Math.max(0, Math.min(100, score));
   const hardBlocker = input.revenge_traded || !input.followed_plan || !input.respected_stop;

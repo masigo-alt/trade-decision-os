@@ -14,6 +14,9 @@ export type BehaviourEntry = {
 
 export type TradeOutcome = {
   date: string;
+  opened_at?: string | null;
+  closed_at?: string | null;
+  status: "planned" | "open" | "closed" | "cancelled";
   pnl: number | null;
   realised_r_multiple: number | null;
   result: "win" | "loss" | "breakeven" | null;
@@ -67,6 +70,7 @@ export type WeeklyAnalytics = {
   };
   trades: {
     total: number;
+    open: number;
     winRate: number;
     netPnl: number;
     planAdherence: number;
@@ -113,20 +117,52 @@ type BehaviourRule = {
 };
 
 const behaviourRules: BehaviourRule[] = [
-  { key: "slept_well", positiveLabel: "Sleeping well", negativeLabel: "Poor sleep", isGood: (value) => value },
-  { key: "felt_calm_before_trading", positiveLabel: "Feeling calm", negativeLabel: "Not feeling calm", isGood: (value) => value },
+  { key: "slept_well", positiveLabel: "Well-rested", negativeLabel: "Insufficient rest", isGood: (value) => value },
+  { key: "felt_calm_before_trading", positiveLabel: "Calm and emotionally steady", negativeLabel: "Emotionally unsettled", isGood: (value) => value },
   { key: "felt_pressure_to_make_money", positiveLabel: "No money pressure", negativeLabel: "Feeling pressure to make money", isGood: (value) => !value },
-  { key: "traded_after_a_loss", positiveLabel: "Not trading after a loss", negativeLabel: "Trading after a loss", isGood: (value) => !value },
-  { key: "overtraded", positiveLabel: "Maintaining trade selectivity", negativeLabel: "Overtrading", isGood: (value) => !value },
-  { key: "revenge_traded", positiveLabel: "Avoiding revenge trading", negativeLabel: "Revenge trading", isGood: (value) => !value },
-  { key: "respected_stop", positiveLabel: "Respecting stops", negativeLabel: "Not respecting stops", isGood: (value) => value },
-  { key: "followed_plan", positiveLabel: "Following the plan", negativeLabel: "Not following the plan", isGood: (value) => value },
-  { key: "traded_during_news", positiveLabel: "Avoiding news-time execution", negativeLabel: "Trading during news", isGood: (value) => !value },
+  { key: "traded_after_a_loss", positiveLabel: "Not reacting to a recent loss", negativeLabel: "Reacting to a recent loss", isGood: (value) => !value },
+  { key: "overtraded", positiveLabel: "Selective trading mindset", negativeLabel: "Risk of forcing trades", isGood: (value) => !value },
+  { key: "revenge_traded", positiveLabel: "No urge to recover losses", negativeLabel: "Urge to recover losses", isGood: (value) => !value },
+  { key: "respected_stop", positiveLabel: "Committed to the planned stop", negativeLabel: "Not committed to the stop", isGood: (value) => value },
+  { key: "followed_plan", positiveLabel: "Committed to the trading plan", negativeLabel: "Not committed to the plan", isGood: (value) => value },
+  { key: "traded_during_news", positiveLabel: "No unplanned news exposure", negativeLabel: "Considering unplanned news exposure", isGood: (value) => !value },
 ];
 
 const percentage = (count: number, total: number) => total ? Math.round((count / total) * 100) : 0;
 const titleCase = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const roundedTotal = (values: Array<number | null>) => Math.round(values.reduce<number>((sum, value) => sum + Number(value ?? 0), 0) * 100) / 100;
+
+function johannesburgDate(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+export function tradeInsightDate(trade: TradeOutcome) {
+  const lifecycleTimestamp = trade.status === "closed"
+    ? trade.closed_at
+    : trade.status === "open"
+      ? trade.opened_at
+      : null;
+
+  return lifecycleTimestamp ? johannesburgDate(lifecycleTimestamp) ?? trade.date : trade.date;
+}
+
+export function tradeOpeningDate(trade: TradeOutcome) {
+  return trade.opened_at ? johannesburgDate(trade.opened_at) ?? trade.date : trade.date;
+}
 
 function gateOutcome(label: string, trades: TradeOutcome[], colour: string): GateOutcome {
   return {
@@ -150,11 +186,27 @@ function association(entries: BehaviourEntry[], rule: BehaviourRule, outcome: bo
 }
 
 export function analyseWeek(entries: BehaviourEntry[], trades: TradeOutcome[], checklists: PreTradeEntry[]): WeeklyAnalytics {
-  const tradingDays = new Set([...entries.map((entry) => entry.entry_date), ...trades.map((trade) => trade.date)]).size;
+  const closedTrades = trades.filter((trade) => trade.status === "closed");
+  const openTrades = trades.filter((trade) => trade.status === "open");
+  const pnlByOpeningDate = new Map<string, number>();
+  closedTrades.forEach((trade) => {
+    const openingDate = tradeOpeningDate(trade);
+    pnlByOpeningDate.set(openingDate, (pnlByOpeningDate.get(openingDate) ?? 0) + Number(trade.pnl ?? 0));
+  });
+  const entriesWithOutcomes = entries.map((entry) => {
+    if (entry.net_positive !== null) return entry;
+    const dayPnl = pnlByOpeningDate.get(entry.entry_date);
+    if (dayPnl === undefined || dayPnl === 0) return entry;
+    return { ...entry, net_positive: dayPnl > 0 };
+  });
+  const tradingDays = new Set([...entries.map((entry) => entry.entry_date), ...trades.map(tradeInsightDate)]).size;
   const journalDates = new Set(entries.map((entry) => entry.entry_date));
-  const positiveDates = new Set(entries.filter((entry) => entry.net_positive === true).map((entry) => entry.entry_date));
+  const positiveDates = new Set(entriesWithOutcomes.filter((entry) => entry.net_positive === true).map((entry) => entry.entry_date));
   const pnlByDate = new Map<string, number>();
-  trades.forEach((trade) => pnlByDate.set(trade.date, (pnlByDate.get(trade.date) ?? 0) + Number(trade.pnl ?? 0)));
+  closedTrades.forEach((trade) => {
+    const insightDate = tradeInsightDate(trade);
+    pnlByDate.set(insightDate, (pnlByDate.get(insightDate) ?? 0) + Number(trade.pnl ?? 0));
+  });
   for (const [date, pnl] of pnlByDate) if (!journalDates.has(date) && pnl > 0) positiveDates.add(date);
 
   const discipline = entries.map((entry) => disciplineScore(entry));
@@ -174,12 +226,12 @@ export function analyseWeek(entries: BehaviourEntry[], trades: TradeOutcome[], c
   ].sort((a, b) => b.count - a.count);
 
   const mistakeCounts = new Map<string, number>();
-  trades.forEach((trade) => {
+  closedTrades.forEach((trade) => {
     if (trade.mistake_type) mistakeCounts.set(trade.mistake_type, (mistakeCounts.get(trade.mistake_type) ?? 0) + 1);
   });
   const commonMistake = [...mistakeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const decisionCount = (decision: PreTradeEntry["recommendation"]) => checklists.filter((item) => item.recommendation === decision).length;
-  const resultCount = (result: TradeOutcome["result"]) => trades.filter((trade) => trade.result === result).length;
+  const resultCount = (result: TradeOutcome["result"]) => closedTrades.filter((trade) => trade.result === result).length;
 
   const planAlignment = percentage(checklists.filter((item) => item.trade_matches_plan).length, checklists.length);
   const calendarCompliance = percentage(checklists.filter((item) => item.economic_calendar_checked).length, checklists.length);
@@ -191,11 +243,11 @@ export function analyseWeek(entries: BehaviourEntry[], trades: TradeOutcome[], c
     && item.emotional_state_acceptable
     && item.trade_matches_plan
   )).length, checklists.length);
-  const planAdherence = percentage(trades.filter((trade) => trade.followed_plan).length, trades.length);
-  const stopDiscipline = percentage(trades.filter((trade) => trade.respected_stop).length, trades.length);
+  const planAdherence = percentage(closedTrades.filter((trade) => trade.followed_plan).length, closedTrades.length);
+  const stopDiscipline = percentage(closedTrades.filter((trade) => trade.respected_stop).length, closedTrades.length);
   const proceedRate = percentage(decisionCount("proceed"), checklists.length);
-  const winRate = percentage(resultCount("win"), trades.length);
-  const linkedTrades = trades.filter((trade) => trade.checklist_id && trade.checklist_recommendation);
+  const winRate = percentage(resultCount("win"), closedTrades.length);
+  const linkedTrades = closedTrades.filter((trade) => trade.checklist_id && trade.checklist_recommendation);
   const proceedTrades = linkedTrades.filter((trade) => trade.checklist_recommendation === "proceed");
   const reduceSizeTrades = linkedTrades.filter((trade) => trade.checklist_recommendation === "reduce_size");
   const guardrailTrades = linkedTrades.filter((trade) => trade.checklist_recommendation === "wait" || trade.checklist_recommendation === "avoid");
@@ -204,20 +256,20 @@ export function analyseWeek(entries: BehaviourEntry[], trades: TradeOutcome[], c
     : 0;
 
   const positiveAssociations = behaviourRules
-    .map((rule) => association(entries, rule, true, true))
+    .map((rule) => association(entriesWithOutcomes, rule, true, true))
     .filter((pattern) => pattern.days > 0)
     .sort((a, b) => b.rate - a.rate)
     .slice(0, 3);
   const negativeAssociations = behaviourRules
-    .map((rule) => association(entries, rule, false, false))
+    .map((rule) => association(entriesWithOutcomes, rule, false, false))
     .filter((pattern) => pattern.days > 0)
     .sort((a, b) => b.rate - a.rate)
     .slice(0, 3);
 
   const recommendations: string[] = [];
   if (checklistBlockers[0]?.count) recommendations.push(`Pre-trade: address ${checklistBlockers[0].label.toLowerCase()} before increasing activity.`);
-  if (trades.length && planAdherence < 80) recommendations.push("Trade journal: narrow next week to setups you can execute exactly according to plan.");
-  if (trades.length && stopDiscipline < 100) recommendations.push("Trade journal: treat stop placement and stop compliance as a non-negotiable risk control.");
+  if (closedTrades.length && planAdherence < 80) recommendations.push("Trade journal: narrow next week to setups you can execute exactly according to plan.");
+  if (closedTrades.length && stopDiscipline < 100) recommendations.push("Trade journal: treat stop placement and stop compliance as a non-negotiable risk control.");
   if (guardrailTrades.length) recommendations.push("Decision linkage: review every trade taken after a Wait or Avoid output and identify why the guardrail was overridden.");
   if (negativeCounts[0]?.count) recommendations.push(`Behaviour: create one visible guardrail for ${negativeCounts[0].label.toLowerCase()}.`);
   if (!recommendations.length) recommendations.push("Maintain the same process next week and prioritise consistency over additional trade frequency.");
@@ -245,18 +297,19 @@ export function analyseWeek(entries: BehaviourEntry[], trades: TradeOutcome[], c
       ],
     },
     trades: {
-      total: trades.length,
+      total: closedTrades.length,
+      open: openTrades.length,
       winRate,
-      netPnl: roundedTotal(trades.map((trade) => trade.pnl)),
+      netPnl: roundedTotal(closedTrades.map((trade) => trade.pnl)),
       planAdherence,
       stopDiscipline,
       commonMistake: commonMistake ? titleCase(commonMistake) : "No mistakes categorised",
-      checklistLinkRate: percentage(linkedTrades.length, trades.length),
+      checklistLinkRate: percentage(linkedTrades.length, closedTrades.length),
       gateOutcomes: [
         gateOutcome("Proceed-aligned", proceedTrades, "#34d399"),
         gateOutcome("Reduce Size", reduceSizeTrades, "#fb923c"),
         gateOutcome("Wait / Avoid overridden", guardrailTrades, "#fb7185"),
-        gateOutcome("No checklist linked", trades.filter((trade) => !trade.checklist_id || !trade.checklist_recommendation), "#94a3b8"),
+        gateOutcome("No checklist linked", closedTrades.filter((trade) => !trade.checklist_id || !trade.checklist_recommendation), "#94a3b8"),
       ],
       resultBreakdown: [
         { label: "Wins", value: resultCount("win"), colour: "#34d399" },
@@ -291,7 +344,7 @@ export function buildWeeklyInsightDraft(
   return {
     week_start: weekStart,
     week_end: weekEnd,
-    summary: `${insights.overview.tradingDays} trading day${insights.overview.tradingDays === 1 ? "" : "s"}, ${insights.trades.total} recorded trade${insights.trades.total === 1 ? "" : "s"}, ${insights.trades.winRate}% win rate, $${insights.trades.netPnl.toFixed(2)} net P&L, and ${insights.overview.averageDiscipline}/100 average discipline.`,
+    summary: `${insights.overview.tradingDays} trading day${insights.overview.tradingDays === 1 ? "" : "s"}, ${insights.trades.total} recorded trade${insights.trades.total === 1 ? "" : "s"}, ${insights.trades.winRate}% win rate, $${insights.trades.netPnl.toFixed(2)} net P&L, and ${insights.overview.averageDiscipline}/100 average readiness.`,
     positive_patterns: positivePatterns,
     negative_patterns: negativePatterns,
     top_behaviour_risks: topBehaviourRisks,
@@ -318,11 +371,11 @@ export const demoBehaviourEntries: BehaviourEntry[] = [
 ];
 
 export const demoTrades: TradeOutcome[] = [
-  { date: "2026-07-20", pnl: 210, realised_r_multiple: 2.1, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Break and retest", checklist_id: "demo-1", checklist_recommendation: "proceed" },
-  { date: "2026-07-21", pnl: -145, realised_r_multiple: -1, result: "loss", followed_plan: false, respected_stop: true, mistake_type: "entry_timing", setup_type: "Risk entry", checklist_id: "demo-2", checklist_recommendation: "reduce_size" },
-  { date: "2026-07-22", pnl: 95, realised_r_multiple: 1.2, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Liquidity sweep", checklist_id: "demo-3", checklist_recommendation: "proceed" },
-  { date: "2026-07-23", pnl: -60, realised_r_multiple: -1, result: "loss", followed_plan: true, respected_stop: true, mistake_type: "news_exposure", setup_type: "Breakout", checklist_id: "demo-4", checklist_recommendation: "wait" },
-  { date: "2026-07-24", pnl: 180, realised_r_multiple: 1.8, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Break and retest", checklist_id: "demo-5", checklist_recommendation: "proceed" },
+  { date: "2026-07-20", status: "closed", pnl: 210, realised_r_multiple: 2.1, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Break and retest", checklist_id: "demo-1", checklist_recommendation: "proceed" },
+  { date: "2026-07-21", status: "closed", pnl: -145, realised_r_multiple: -1, result: "loss", followed_plan: false, respected_stop: true, mistake_type: "entry_timing", setup_type: "Risk entry", checklist_id: "demo-2", checklist_recommendation: "reduce_size" },
+  { date: "2026-07-22", status: "closed", pnl: 95, realised_r_multiple: 1.2, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Liquidity sweep", checklist_id: "demo-3", checklist_recommendation: "proceed" },
+  { date: "2026-07-23", status: "closed", pnl: -60, realised_r_multiple: -1, result: "loss", followed_plan: true, respected_stop: true, mistake_type: "news_exposure", setup_type: "Breakout", checklist_id: "demo-4", checklist_recommendation: "wait" },
+  { date: "2026-07-24", status: "closed", pnl: 180, realised_r_multiple: 1.8, result: "win", followed_plan: true, respected_stop: true, mistake_type: null, setup_type: "Break and retest", checklist_id: "demo-5", checklist_recommendation: "proceed" },
 ];
 
 export const demoChecklists: PreTradeEntry[] = [

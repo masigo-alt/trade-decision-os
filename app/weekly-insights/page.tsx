@@ -11,6 +11,7 @@ import {
   demoBehaviourEntries,
   demoChecklists,
   demoTrades,
+  tradeInsightDate,
   type BehaviourEntry,
   type PreTradeEntry,
   type TradeOutcome,
@@ -70,7 +71,7 @@ export default function WeeklyInsightsPage() {
         if (!authData.user) return;
         const [behaviourResult, tradeResult, checklistResult, historyResult] = await Promise.all([
           supabase.from("behaviour_journal_entries").select("entry_date,slept_well,felt_calm_before_trading,felt_pressure_to_make_money,traded_after_a_loss,overtraded,revenge_traded,respected_stop,followed_plan,traded_during_news,net_positive").gte("entry_date", weekStart).order("entry_date"),
-          supabase.from("trades").select("date,pnl,realised_r_multiple,result,followed_plan,respected_stop,mistake_type,setup_type,checklist_id,pre_trade_checklists(recommendation)").gte("date", weekStart).order("date"),
+          supabase.from("trades").select("date,opened_at,closed_at,status,pnl,realised_r_multiple,result,followed_plan,respected_stop,mistake_type,setup_type,checklist_id,pre_trade_checklists(recommendation)").order("date"),
           supabase.from("pre_trade_checklists").select("submitted_at,risk_percent,economic_calendar_checked,market_conditions_aligned,has_clear_invalidation,risk_reward_acceptable,emotional_state_acceptable,trade_matches_plan,recommendation").gte("submitted_at", `${weekStart}T00:00:00`).order("submitted_at"),
           supabase.from("weekly_insights").select("id,week_start,week_end,summary,trades_taken,win_rate,net_pnl,net_r_multiple,recommendations,generated_at").order("week_start", { ascending: false }).limit(12),
         ]);
@@ -80,8 +81,11 @@ export default function WeeklyInsightsPage() {
         if (historyResult.error) throw historyResult.error;
 
         setEntries((behaviourResult.data ?? []) as BehaviourEntry[]);
-        setTrades((tradeResult.data ?? []).map((trade) => ({
+        const weeklyTrades = (tradeResult.data ?? []).map((trade) => ({
           date: trade.date,
+          opened_at: trade.opened_at,
+          closed_at: trade.closed_at,
+          status: trade.status,
           pnl: trade.pnl,
           realised_r_multiple: trade.realised_r_multiple,
           result: trade.result,
@@ -91,7 +95,11 @@ export default function WeeklyInsightsPage() {
           setup_type: trade.setup_type,
           checklist_id: trade.checklist_id,
           checklist_recommendation: trade.pre_trade_checklists?.recommendation ?? null,
-        })));
+        })).filter((trade) => {
+          const insightDate = tradeInsightDate(trade);
+          return insightDate >= weekStart && insightDate <= weekEnd;
+        });
+        setTrades(weeklyTrades);
         setChecklists((checklistResult.data ?? []) as PreTradeEntry[]);
         setSavedReports(historyResult.data ?? []);
         setIsDemo(false);
@@ -101,7 +109,7 @@ export default function WeeklyInsightsPage() {
       }
     }
     loadInsights();
-  }, [weekStart]);
+  }, [weekStart, weekEnd]);
 
   const insights = useMemo(() => analyseWeek(entries, trades, checklists), [entries, trades, checklists]);
   const hasWeekData = insights.overview.tradingDays > 0 || insights.overview.checklistCount > 0;
@@ -142,14 +150,14 @@ export default function WeeklyInsightsPage() {
   return <AppShell>
     <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="eyebrow text-violet-300">Weekly insights</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white">Your process, seen clearly.</h1><p className="mt-2 text-sm text-slate-500">Rule-based findings across preparation, execution, and behaviour.</p></div><span className={`rounded-full px-3 py-1.5 text-xs font-medium ${isDemo ? "bg-amber-300/10 text-amber-100" : "bg-emerald-400/10 text-emerald-200"}`}>{isDemo ? "Demo data" : "Live weekly data"}</span></header>
     <p className="mb-5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-sm text-slate-400">{status}</p>
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Trading days" value={insights.overview.tradingDays} note="Journal and trade activity" /><Metric label="Net positive days" value={insights.overview.netPositiveDays} note="Daily outcome or summed P&L" tone="text-emerald-200" /><Metric label="Average discipline" value={`${insights.overview.averageDiscipline}/100`} note="Nine behaviour controls" tone="text-indigo-200" /><Metric label="Pre-trade checks" value={insights.overview.checklistCount} note="Decision gates completed" /></section>
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Trading days" value={insights.overview.tradingDays} note="Journal and trade activity" /><Metric label="Net positive days" value={insights.overview.netPositiveDays} note="Daily outcome or summed P&L" tone="text-emerald-200" /><Metric label="Average readiness" value={`${insights.overview.averageDiscipline}/100`} note="Nine pre-market controls" tone="text-indigo-200" /><Metric label="Pre-trade checks" value={insights.overview.checklistCount} note="Decision gates completed" /></section>
 
     <section className="mt-8"><p className="text-xs font-medium uppercase tracking-[0.15em] text-indigo-300">01 · Pre-Trade Checklist insights</p><h2 className="mt-1 text-xl font-semibold text-white">Preparation and decision quality</h2><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Proceed rate" value={`${insights.preTrade.proceedRate}%`} note={`${insights.preTrade.total} total checklists`} tone="text-emerald-200" /><Metric label="Plan alignment" value={`${insights.preTrade.planAlignment}%`} note="Ideas matching the trading plan" /><Metric label="Calendar compliance" value={`${insights.preTrade.calendarCompliance}%`} note="High-impact calendar checked" /><Metric label="Average planned risk" value={`${insights.preTrade.averageRisk}%`} note="Risk declared before execution" /></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Decision outputs</p><Breakdown items={insights.preTrade.decisionBreakdown} /></article><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Most common blocker</p><p className="mt-4 text-xl font-semibold text-amber-100">{insights.preTrade.mostCommonBlocker}</p><p className="mt-2 text-sm leading-6 text-slate-500">This is the condition most frequently preventing full alignment before a trade.</p></article></div></section>
 
     <section className="mt-8">
       <p className="text-xs font-medium uppercase tracking-[0.15em] text-emerald-300">02 · Trade Journal insights</p>
       <h2 className="mt-1 text-xl font-semibold text-white">Execution and actual outcomes</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Trades recorded" value={insights.trades.total} note="Completed journal outcomes" /><Metric label="Win rate" value={`${insights.trades.winRate}%`} note="Wins as a share of recorded trades" tone="text-emerald-200" /><Metric label="Net P&L" value={`$${insights.trades.netPnl.toFixed(2)}`} note="Total realised outcome" tone={insights.trades.netPnl >= 0 ? "text-emerald-200" : "text-rose-200"} /><Metric label="Plan adherence" value={`${insights.trades.planAdherence}%`} note={`Stop discipline: ${insights.trades.stopDiscipline}%`} /></div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Trades completed" value={insights.trades.total} note={`${insights.trades.open} still open and excluded`} /><Metric label="Win rate" value={`${insights.trades.winRate}%`} note="Wins across completed trades only" tone="text-emerald-200" /><Metric label="Net P&L" value={`$${insights.trades.netPnl.toFixed(2)}`} note="Realised outcomes only" tone={insights.trades.netPnl >= 0 ? "text-emerald-200" : "text-rose-200"} /><Metric label="Plan adherence" value={`${insights.trades.planAdherence}%`} note={`Stop discipline: ${insights.trades.stopDiscipline}%`} /></div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2"><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Trade results</p><Breakdown items={insights.trades.resultBreakdown} /></article><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Most common execution mistake</p><p className="mt-4 text-xl font-semibold text-rose-200">{insights.trades.commonMistake}</p><p className="mt-2 text-sm leading-6 text-slate-500">Categorised from post-trade reviews, independent of whether the trade made money.</p></article></div>
       <article className={`${card} mt-4 border-emerald-400/15 bg-emerald-400/[0.035]`}>
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-xs uppercase tracking-[0.15em] text-emerald-300">Decision gate → outcome</p><h3 className="mt-1 text-lg font-semibold text-white">Checklist adherence versus recorded result</h3></div><span className="text-sm font-medium text-slate-300">{insights.trades.checklistLinkRate}% of trades linked</span></div>
@@ -158,7 +166,7 @@ export default function WeeklyInsightsPage() {
       </article>
     </section>
 
-    <section className="mt-8"><p className="text-xs font-medium uppercase tracking-[0.15em] text-violet-300">03 · Behaviour Journal insights</p><h2 className="mt-1 text-xl font-semibold text-white">Personal state and discipline patterns</h2><div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.6fr]"><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Discipline by day</p><div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={insights.behaviour.dailyDiscipline}><CartesianGrid vertical={false} stroke="#ffffff12" /><XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "#ffffff08" }} contentStyle={{ background: "#111827", border: "1px solid #ffffff18", borderRadius: 10 }} /><Bar dataKey="score" radius={[6, 6, 0, 0]}>{insights.behaviour.dailyDiscipline.map((entry) => <Cell key={entry.date} fill={entry.score >= 75 ? "#34d399" : entry.score >= 60 ? "#fbbf24" : "#fb7185"} />)}</Bar></BarChart></ResponsiveContainer></div></article><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Most common negative behaviour</p><p className="mt-4 text-xl font-semibold text-rose-200">{insights.behaviour.mostCommonNegative}</p><p className="mt-2 text-sm leading-6 text-slate-500">Frequency identifies what deserves attention; it does not prove causation.</p></article></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><Associations title="Associated with net positive days" items={insights.behaviour.positiveAssociations} tone="positive" /><Associations title="Associated with net negative days" items={insights.behaviour.negativeAssociations} tone="negative" /></div></section>
+    <section className="mt-8"><p className="text-xs font-medium uppercase tracking-[0.15em] text-violet-300">03 · Behaviour Journal insights</p><h2 className="mt-1 text-xl font-semibold text-white">Pre-market state and readiness patterns</h2><div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.6fr]"><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Readiness by day</p><div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={insights.behaviour.dailyDiscipline}><CartesianGrid vertical={false} stroke="#ffffff12" /><XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "#ffffff08" }} contentStyle={{ background: "#111827", border: "1px solid #ffffff18", borderRadius: 10 }} /><Bar dataKey="score" radius={[6, 6, 0, 0]}>{insights.behaviour.dailyDiscipline.map((entry) => <Cell key={entry.date} fill={entry.score >= 75 ? "#34d399" : entry.score >= 60 ? "#fbbf24" : "#fb7185"} />)}</Bar></BarChart></ResponsiveContainer></div></article><article className={card}><p className="text-xs uppercase tracking-wider text-slate-500">Most common readiness risk</p><p className="mt-4 text-xl font-semibold text-rose-200">{insights.behaviour.mostCommonNegative}</p><p className="mt-2 text-sm leading-6 text-slate-500">Frequency identifies what deserves attention; it does not prove causation.</p></article></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><Associations title="Readiness states on net positive days" items={insights.behaviour.positiveAssociations} tone="positive" /><Associations title="Readiness risks on net negative days" items={insights.behaviour.negativeAssociations} tone="negative" /></div></section>
 
     <section className={`${card} mt-8 border-indigo-400/15 bg-indigo-400/[0.04]`}><p className="text-xs uppercase tracking-[0.15em] text-indigo-300">Combined next-week actions</p><h2 className="mt-1 text-lg font-semibold text-white">Recommendations across all three datasets</h2><ol className="mt-5 space-y-3">{insights.recommendations.map((item, index) => <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-indigo-400/10 text-xs font-semibold text-indigo-200">{index + 1}</span>{item}</li>)}</ol></section>
 
