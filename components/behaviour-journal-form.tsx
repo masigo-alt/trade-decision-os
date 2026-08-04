@@ -13,25 +13,27 @@ type QuestionKey =
   | "revenge_traded"
   | "respected_stop"
   | "followed_plan"
-  | "traded_during_news"
-  | "net_positive";
+  | "traded_during_news";
 
 type Answers = Record<QuestionKey, boolean | null>;
 
 const questions: Array<{ key: QuestionKey; label: string; help?: string }> = [
-  { key: "slept_well", label: "Did I sleep well?" },
-  { key: "felt_calm_before_trading", label: "Did I feel calm before trading?" },
-  { key: "felt_pressure_to_make_money", label: "Did I feel pressure to make money?" },
-  { key: "traded_after_a_loss", label: "Did I trade after a loss?" },
-  { key: "overtraded", label: "Did I overtrade?", help: "More entries than your written plan allowed." },
-  { key: "revenge_traded", label: "Did I revenge trade?" },
-  { key: "respected_stop", label: "Did I respect my stop?" },
-  { key: "followed_plan", label: "Did I follow my plan?" },
-  { key: "traded_during_news", label: "Did I trade during high-impact news?" },
-  { key: "net_positive", label: "Was the day net positive?" },
+  { key: "slept_well", label: "Did I sleep well enough to make clear decisions today?" },
+  { key: "felt_calm_before_trading", label: "Do I feel calm and emotionally steady right now?" },
+  { key: "felt_pressure_to_make_money", label: "Do I feel pressure to make money today?", help: "Notice urgency, financial pressure, or a need for the market to provide an outcome." },
+  { key: "traded_after_a_loss", label: "Am I reacting to a recent loss or trying to recover it?" },
+  { key: "overtraded", label: "Am I at risk of forcing trades or lowering my setup standards today?" },
+  { key: "revenge_traded", label: "Do I feel an urge to win money back or prove something?", help: "Any need to get even is a reason to step away." },
+  { key: "respected_stop", label: "Am I fully prepared to accept and respect my planned stop?" },
+  { key: "followed_plan", label: "Am I committed to taking only trades that match my written plan?" },
+  { key: "traded_during_news", label: "Am I considering trading through high-impact news without a planned news setup?" },
 ];
 
 const initialAnswers = Object.fromEntries(questions.map(({ key }) => [key, null])) as Answers;
+
+function answersAreComplete(answers: Answers): answers is Record<QuestionKey, boolean> {
+  return questions.every(({ key }) => answers[key] !== null);
+}
 
 export function BehaviourJournalForm() {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
@@ -54,9 +56,7 @@ export function BehaviourJournalForm() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const unanswered = questions.filter(({ key }) => answers[key] === null);
-
-    if (unanswered.length > 0) {
+    if (!answersAreComplete(answers)) {
       setStatus("error");
       setMessage("Answer every question before saving your entry.");
       return;
@@ -83,7 +83,6 @@ export function BehaviourJournalForm() {
           respected_stop: answers.respected_stop,
           followed_plan: answers.followed_plan,
           traded_during_news: answers.traded_during_news,
-          net_positive: answers.net_positive,
           notes: notes.trim() || null,
         },
         { onConflict: "user_id,entry_date" },
@@ -91,7 +90,7 @@ export function BehaviourJournalForm() {
 
       if (error) throw error;
       setStatus("success");
-      setMessage("Journal entry saved. It will feed your weekly insights.");
+      setMessage("Readiness check-in saved. It now feeds your dashboard and weekly insights.");
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Unable to save your entry. Please try again.");
@@ -103,9 +102,9 @@ export function BehaviourJournalForm() {
       <section className="form-section">
         <div className="flex flex-col justify-between gap-4 border-b border-white/[0.07] pb-5 sm:flex-row sm:items-center">
           <div>
-            <p className="form-eyebrow">Daily check-in</p>
-            <h2 className="form-title">How did you show up today?</h2>
-            <p className="form-description">Answer honestly. This is a private signal, not a scorecard.</p>
+            <p className="form-eyebrow">Pre-market readiness</p>
+            <h2 className="form-title">Am I fit to participate today?</h2>
+            <p className="form-description">Pause before taking any trade. Answer for how you feel and intend to behave right now.</p>
           </div>
           <label className="text-sm text-slate-400">
             <span className="form-label">Entry date</span>
@@ -141,12 +140,12 @@ export function BehaviourJournalForm() {
       </section>
 
       <section className="form-section">
-        <label htmlFor="notes" className="form-field"><span className="form-label">Optional note</span><span className="form-help">Capture context you may want to recognise later.</span>
-        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="What influenced your decisions today?" /></label>
+        <label htmlFor="notes" className="form-field"><span className="form-label">Optional readiness note</span><span className="form-help">Capture anything influencing your state or reasons for wanting to trade.</span>
+        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="What is influencing my desire to trade today?" /></label>
       </section>
 
       {status !== "idle" && <p className={`form-status ${status === "success" ? "is-success" : status === "error" ? "is-error" : "is-saving"}`}>{message || "Saving your entry…"}</p>}
-      <button disabled={status === "saving"} type="submit" className="form-submit">{status === "saving" ? "Saving entry…" : "Save behaviour journal"}</button>
+      <button disabled={status === "saving"} type="submit" className="form-submit">{status === "saving" ? "Saving check-in…" : "Save readiness check-in"}</button>
     </form>
   );
 }

@@ -14,8 +14,12 @@ export type PreTradeDecision = {
   reason: string;
 };
 
+const ELEVATED_RISK = 2;
+const MAX_RISK = 5;
+
 /** Applies the MVP's stated decision gate in a conservative order. */
 export function decidePreTrade(input: PreTradeDecisionInput): PreTradeDecision {
+  if (input.plannedRiskPercentage > MAX_RISK) return { recommendation: "avoid", label: "Avoid", reason: `Planned risk of ${input.plannedRiskPercentage}% exceeds the 5% ceiling for a single trade.` };
   if (!input.matchesTradingPlan) return { recommendation: "avoid", label: "Avoid", reason: "The planned trade does not match your trading plan." };
   if (!input.hasClearInvalidation) return { recommendation: "avoid", label: "Avoid", reason: "A clear invalidation point is required before taking risk." };
   if (!input.economicCalendarChecked) return { recommendation: "wait", label: "Wait", reason: "Check the high-impact economic calendar before committing risk." };
@@ -23,6 +27,9 @@ export function decidePreTrade(input: PreTradeDecisionInput): PreTradeDecision {
     if (!input.marketConditionsSupportIdea || !input.riskRewardAcceptable) return { recommendation: "avoid", label: "Avoid", reason: "Emotional state and setup quality are not sufficiently aligned." };
     return { recommendation: "reduce_size", label: "Reduce Size", reason: "The setup is aligned, but reduce exposure until your emotional state improves." };
   }
-  if (input.marketConditionsSupportIdea && input.riskRewardAcceptable) return { recommendation: "proceed", label: "Proceed", reason: "The key market, risk, plan, and emotional checks are aligned." };
+  if (input.marketConditionsSupportIdea && input.riskRewardAcceptable) {
+    if (input.plannedRiskPercentage > ELEVATED_RISK) return { recommendation: "reduce_size", label: "Reduce Size", reason: "The setup is aligned, but planned risk above 2% should be reduced." };
+    return { recommendation: "proceed", label: "Proceed", reason: "The key market, risk, plan, and emotional checks are aligned." };
+  }
   return { recommendation: "wait", label: "Wait", reason: "Wait for the remaining market or risk/reward conditions to align." };
 }

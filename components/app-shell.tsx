@@ -114,7 +114,7 @@ function Account({
 }
 
 export function AppShell({ children, width = "wide" }: { children: ReactNode; width?: "wide" | "reading" }) {
-  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production";
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(!bypassAuth);
@@ -165,6 +165,9 @@ export function AppShell({ children, width = "wide" }: { children: ReactNode; wi
   if (!bypassAuth && (checkingSession || !user)) return <SessionLoading />;
 
   return <main className="min-h-screen bg-[#090b10] text-slate-100">
+    {bypassAuth && <div role="alert" className="w-full bg-amber-400 px-4 py-2.5 text-center text-xs font-semibold tracking-wide text-amber-950 sm:text-sm">
+      Presentation mode — authentication bypassed. Nothing is saved.
+    </div>}
     <div className="app-shell-frame mx-auto flex min-h-screen">
       <aside className="app-desktop-sidebar app-shell-sidebar sticky top-0 h-screen shrink-0 flex-col border-r border-white/[0.06] bg-[#0b0e14]/95 px-4 py-6">
         <div className="px-2"><Brand /></div>
